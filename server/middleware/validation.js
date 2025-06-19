@@ -292,6 +292,23 @@ const chatValidation = {
       .trim()
       .isLength({ max: 500 })
       .withMessage('Thread description cannot exceed 500 characters')
+  ],
+
+  updateSettings: [
+    body('aiModel')
+      .optional()
+      .isIn(['gpt-4', 'gpt-3.5-turbo'])
+      .withMessage('AI model must be gpt-4 or gpt-3.5-turbo'),
+    
+    body('temperature')
+      .optional()
+      .isFloat({ min: 0, max: 2 })
+      .withMessage('Temperature must be between 0 and 2'),
+    
+    body('maxTokens')
+      .optional()
+      .isInt({ min: 1, max: 4000 })
+      .withMessage('Max tokens must be between 1 and 4000')
   ]
 };
 

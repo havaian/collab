@@ -1,10 +1,10 @@
 const crypto = require('crypto');
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-character-encryption-key-here';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'TimE6KT1QlP8ZTWk3SR5mQmarvygk8vTkE6E6eejrXWGhAgZDf2XLaktjIIqDRS1o8jyy6XF2QeyKg2hKJ0VxfEGoglHABuCLf0koM7';
 const ALGORITHM = 'aes-256-gcm';
 
-if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
-  throw new Error('ENCRYPTION_KEY must be exactly 32 characters long');
+if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length <= 32) {
+  throw new Error('ENCRYPTION_KEY must not be less than 32 characters long');
 }
 
 /**

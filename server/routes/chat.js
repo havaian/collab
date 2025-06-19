@@ -1,439 +1,367 @@
 const express = require('express');
+const router = express.Router();
 const Chat = require('../models/Chat');
 const Project = require('../models/Project');
+const { requireAuth, requireProjectAccess, requireAPIKey } = require('../middleware/auth');
+const { chatValidation } = require('../middleware/validation');
+const { handleValidationErrors } = require('../middleware/errorHandler');
 const aiService = require('../services/aiService');
-const { 
-  authenticateJWT, 
-  requireProjectAccess,
-  requireAPIKey 
-} = require('../middleware/auth');
-const { 
-  chatValidation, 
-  handleValidationErrors,
-  paramValidation,
-  queryValidation
-} = require('../middleware/validation');
-const { 
-  aiChat,
-  trackUsage,
-  checkDailyQuota
-} = require('../middleware/rateLimiter');
 
-const router = express.Router();
-
-// Apply authentication to all routes
-router.use(authenticateJWT);
-
-// Get chat history for project
-router.get('/project/:projectId',
-  paramValidation.projectId,
-  queryValidation.pagination,
-  handleValidationErrors,
-  requireProjectAccess('view'),
+// Get chat messages for a project
+router.get('/:projectId', 
+  requireAuth, 
+  requireProjectAccess(),
   async (req, res) => {
     try {
       const { projectId } = req.params;
-      const { threadId, limit = 50, skip = 0 } = req.query;
+      const { limit = 50, offset = 0, threadId } = req.query;
 
-      const chat = await Chat.findByProject(projectId);
-      
+      let chat = await Chat.findOne({ projectId })
+        .populate('messages.author', 'username avatar')
+        .sort({ 'messages.createdAt': -1 });
+
       if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
+        // Create new chat if it doesn't exist
+        chat = new Chat({
+          projectId,
+          messages: []
         });
+        await chat.save();
       }
 
-      const messages = chat.getMessages(threadId, parseInt(limit), parseInt(skip));
+      // Filter messages by thread if specified
+      let messages = chat.messages;
+      if (threadId) {
+        messages = messages.filter(msg => msg.threadId === threadId);
+      }
+
+      // Apply pagination
+      const paginatedMessages = messages
+        .slice(parseInt(offset), parseInt(offset) + parseInt(limit))
+        .reverse(); // Show oldest first
 
       res.json({
-        messages,
-        threads: chat.activeThreads,
-        settings: chat.settings,
-        stats: chat.stats
+        messages: paginatedMessages,
+        total: messages.length,
+        hasMore: parseInt(offset) + parseInt(limit) < messages.length
       });
 
     } catch (error) {
-      console.error('Error fetching chat history:', error);
+      console.error('Error fetching chat messages:', error);
       res.status(500).json({
-        error: 'Failed to fetch chat history',
-        message: 'Unable to retrieve chat messages'
+        error: 'Server error',
+        message: 'Failed to fetch chat messages'
       });
     }
   }
 );
 
-// Send message to AI
-router.post('/project/:projectId/message',
-  paramValidation.projectId,
-  aiChat,
-  checkDailyQuota('aiInteraction'),
-  trackUsage('ai_interaction'),
+// Send message to AI and get response
+router.post('/:projectId',
+  requireAuth,
+  requireProjectAccess('collaborate'),
+  requireAPIKey('openai'),
   chatValidation.sendMessage,
   handleValidationErrors,
-  requireProjectAccess('ai'),
-  requireAPIKey('openai'),
   async (req, res) => {
     try {
       const { projectId } = req.params;
-      const { 
-        content, 
-        threadId = 'main', 
-        model, 
+      const {
+        message: content,
+        threadId,
         includeContext = true,
+        model,
         temperature,
         maxTokens
       } = req.body;
 
-      // Get or create chat
-      let chat = await Chat.findByProject(projectId);
+      // Find or create chat
+      let chat = await Chat.findOne({ projectId });
       if (!chat) {
-        chat = await Chat.createForProject(projectId);
-      }
-
-      // Get previous messages for context
-      const previousMessages = chat.getMessages(threadId, 10)
-        .filter(msg => msg.type !== 'system')
-        .map(msg => ({
-          role: msg.type === 'user' ? 'user' : 'assistant',
-          content: msg.content
-        }));
-
-      // Add user message to chat
-      const userMessage = await chat.addMessage({
-        type: 'user',
-        content,
-        author: req.user._id,
-        threadId
-      });
-
-      // Get AI response
-      const aiResponse = await aiService.sendMessage({
-        message: content,
-        apiKey: req.apiKey,
-        model: model || chat.settings.aiModel,
-        temperature: temperature || chat.settings.temperature,
-        maxTokens: maxTokens || chat.settings.maxTokens,
-        projectId,
-        userId: req.user._id,
-        includeContext,
-        previousMessages
-      });
-
-      // Add AI response to chat
-      const assistantMessage = await chat.addMessage({
-        type: 'assistant',
-        content: aiResponse.message,
-        model: aiResponse.model,
-        tokens: {
-          prompt: aiResponse.usage.promptTokens,
-          completion: aiResponse.usage.completionTokens,
-          total: aiResponse.usage.totalTokens
-        },
-        context: aiResponse.context,
-        threadId
-      });
-
-      // Update chat stats
-      chat.stats.totalCost += aiResponse.cost;
-      await chat.save();
-
-      // Notify other project members
-      if (req.io) {
-        req.io.to(`project:${projectId}`).emit('chat:new_messages', {
+        chat = new Chat({
           projectId,
-          messages: [userMessage.messages[userMessage.messages.length - 2], assistantMessage.messages[assistantMessage.messages.length - 1]],
-          threadId
-        });
-      }
-
-      res.json({
-        userMessage: userMessage.messages[userMessage.messages.length - 2],
-        assistantMessage: assistantMessage.messages[assistantMessage.messages.length - 1],
-        usage: aiResponse.usage,
-        cost: aiResponse.cost,
-        context: aiResponse.context
-      });
-
-    } catch (error) {
-      console.error('Error sending AI message:', error);
-      
-      // Handle specific AI service errors
-      let errorMessage = 'Failed to send message to AI';
-      let statusCode = 500;
-      
-      if (error.message.includes('Invalid API key')) {
-        errorMessage = 'Invalid OpenAI API key';
-        statusCode = 401;
-      } else if (error.message.includes('Rate limit exceeded')) {
-        errorMessage = 'AI service rate limit exceeded';
-        statusCode = 429;
-      } else if (error.message.includes('API Error')) {
-        errorMessage = error.message;
-        statusCode = 400;
-      }
-
-      res.status(statusCode).json({
-        error: 'AI message failed',
-        message: errorMessage
-      });
-    }
-  }
-);
-
-// Edit message
-router.put('/project/:projectId/message/:messageId',
-  paramValidation.projectId,
-  paramValidation.messageId,
-  chatValidation.editMessage,
-  handleValidationErrors,
-  requireProjectAccess('view'),
-  async (req, res) => {
-    try {
-      const { projectId, messageId } = req.params;
-      const { content } = req.body;
-
-      const chat = await Chat.findByProject(projectId);
-      
-      if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
-        });
-      }
-
-      await chat.editMessage(messageId, content, req.user._id);
-
-      // Notify other users
-      if (req.io) {
-        req.io.to(`project:${projectId}`).emit('chat:message_edited', {
-          projectId,
-          messageId,
-          content,
-          editedBy: req.user._id
-        });
-      }
-
-      res.json({
-        message: 'Message edited successfully'
-      });
-
-    } catch (error) {
-      console.error('Error editing message:', error);
-      res.status(400).json({
-        error: 'Failed to edit message',
-        message: error.message || 'Unable to edit message'
-      });
-    }
-  }
-);
-
-// Delete message
-router.delete('/project/:projectId/message/:messageId',
-  paramValidation.projectId,
-  paramValidation.messageId,
-  handleValidationErrors,
-  requireProjectAccess('view'),
-  async (req, res) => {
-    try {
-      const { projectId, messageId } = req.params;
-
-      const chat = await Chat.findByProject(projectId);
-      
-      if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
-        });
-      }
-
-      await chat.deleteMessage(messageId, req.user._id);
-
-      // Notify other users
-      if (req.io) {
-        req.io.to(`project:${projectId}`).emit('chat:message_deleted', {
-          projectId,
-          messageId,
-          deletedBy: req.user._id
-        });
-      }
-
-      res.json({
-        message: 'Message deleted successfully'
-      });
-
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      res.status(400).json({
-        error: 'Failed to delete message',
-        message: error.message || 'Unable to delete message'
-      });
-    }
-  }
-);
-
-// Create new thread
-router.post('/project/:projectId/thread',
-  paramValidation.projectId,
-  chatValidation.createThread,
-  handleValidationErrors,
-  requireProjectAccess('view'),
-  async (req, res) => {
-    try {
-      const { projectId } = req.params;
-      const { name, description } = req.body;
-
-      const chat = await Chat.findByProject(projectId);
-      
-      if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
-        });
-      }
-
-      const threadId = await chat.createThread(name, description, req.user._id);
-
-      // Notify other users
-      if (req.io) {
-        req.io.to(`project:${projectId}`).emit('chat:thread_created', {
-          projectId,
-          thread: {
-            id: threadId,
-            name,
-            description,
-            createdBy: req.user._id
+          messages: [],
+          settings: {
+            aiModel: model || 'gpt-3.5-turbo',
+            temperature: temperature || 0.7,
+            maxTokens: maxTokens || 2000
           }
         });
       }
 
-      res.status(201).json({
-        message: 'Thread created successfully',
-        threadId
-      });
+      // Get recent messages for context
+      const recentMessages = chat.messages
+        .filter(msg => !threadId || msg.threadId === threadId)
+        .slice(-10)
+        .map(msg => ({
+          type: msg.type,
+          content: msg.content
+        }));
+
+      // Add user message to chat
+      const userMessage = {
+        type: 'user',
+        content,
+        author: req.user._id,
+        createdAt: new Date(),
+        threadId: threadId || null
+      };
+
+      chat.messages.push(userMessage);
+
+      try {
+        // Get AI response
+        console.log(`Processing AI request for project ${projectId} from user ${req.user.username}`);
+        
+        const aiResponse = await aiService.sendMessage({
+          message: content,
+          apiKey: req.apiKey,
+          model: model || chat.settings.aiModel,
+          temperature: temperature || chat.settings.temperature,
+          maxTokens: maxTokens || chat.settings.maxTokens,
+          projectId,
+          userId: req.user._id,
+          includeContext,
+          previousMessages: recentMessages
+        });
+
+        // Add AI response to chat
+        const assistantMessage = {
+          type: 'assistant',
+          content: aiResponse.message,
+          model: aiResponse.model,
+          tokens: {
+            prompt: aiResponse.usage.promptTokens,
+            completion: aiResponse.usage.completionTokens,
+            total: aiResponse.usage.totalTokens
+          },
+          cost: aiResponse.cost,
+          context: aiResponse.context,
+          createdAt: new Date(),
+          threadId: threadId || null
+        };
+
+        chat.messages.push(assistantMessage);
+
+        // Update chat statistics
+        if (!chat.stats) {
+          chat.stats = {
+            totalMessages: 0,
+            totalTokens: 0,
+            totalCost: 0
+          };
+        }
+
+        chat.stats.totalMessages += 2; // User + AI message
+        chat.stats.totalTokens += aiResponse.usage.totalTokens;
+        chat.stats.totalCost += aiResponse.cost;
+        chat.updatedAt = new Date();
+
+        await chat.save();
+
+        // Emit to other project members via Socket.IO
+        if (req.io) {
+          req.io.to(`project:${projectId}`).emit('chat:new_messages', {
+            projectId,
+            messages: [userMessage, assistantMessage],
+            threadId
+          });
+        }
+
+        // Log successful interaction
+        console.log(`AI response generated successfully. Tokens: ${aiResponse.usage.totalTokens}, Cost: $${aiResponse.cost.toFixed(6)}`);
+
+        res.json({
+          userMessage,
+          assistantMessage,
+          usage: aiResponse.usage,
+          cost: aiResponse.cost,
+          context: aiResponse.context,
+          totalCost: chat.stats.totalCost
+        });
+
+      } catch (aiError) {
+        console.error('AI Service Error:', aiError);
+        
+        // Add error message to chat
+        const errorMessage = {
+          type: 'system',
+          content: `AI Error: ${aiError.message}`,
+          createdAt: new Date(),
+          threadId: threadId || null,
+          isError: true
+        };
+
+        chat.messages.push(errorMessage);
+        await chat.save();
+
+        // Emit error to other project members
+        if (req.io) {
+          req.io.to(`project:${projectId}`).emit('chat:error', {
+            projectId,
+            error: aiError.message,
+            threadId
+          });
+        }
+
+        // Return appropriate error status
+        let statusCode = 500;
+        if (aiError.message.includes('Invalid API key')) {
+          statusCode = 401;
+        } else if (aiError.message.includes('rate limit')) {
+          statusCode = 429;
+        } else if (aiError.message.includes('Invalid request')) {
+          statusCode = 400;
+        }
+
+        res.status(statusCode).json({
+          error: 'AI service error',
+          message: aiError.message,
+          userMessage // Still return the user message that was saved
+        });
+      }
 
     } catch (error) {
-      console.error('Error creating thread:', error);
+      console.error('Error in chat endpoint:', error);
       res.status(500).json({
-        error: 'Failed to create thread',
-        message: 'Unable to create chat thread'
+        error: 'Server error',
+        message: 'Failed to process chat message'
       });
     }
   }
 );
 
-// Archive thread
-router.put('/project/:projectId/thread/:threadId/archive',
-  paramValidation.projectId,
-  handleValidationErrors,
-  requireProjectAccess('edit'),
+// Clear chat history
+router.delete('/:projectId',
+  requireAuth,
+  requireProjectAccess('manage'),
   async (req, res) => {
     try {
-      const { projectId, threadId } = req.params;
+      const { projectId } = req.params;
+      const { threadId } = req.query;
 
-      const chat = await Chat.findByProject(projectId);
-      
+      const chat = await Chat.findOne({ projectId });
       if (!chat) {
         return res.status(404).json({
           error: 'Chat not found',
-          message: 'No chat found for this project'
+          message: 'No chat history found for this project'
         });
       }
 
-      await chat.archiveThread(threadId);
+      if (threadId) {
+        // Clear specific thread
+        chat.messages = chat.messages.filter(msg => msg.threadId !== threadId);
+      } else {
+        // Clear all messages
+        chat.messages = [];
+        chat.stats = {
+          totalMessages: 0,
+          totalTokens: 0,
+          totalCost: 0
+        };
+      }
 
-      // Notify other users
+      chat.updatedAt = new Date();
+      await chat.save();
+
+      // Emit to other project members
       if (req.io) {
-        req.io.to(`project:${projectId}`).emit('chat:thread_archived', {
+        req.io.to(`project:${projectId}`).emit('chat:cleared', {
           projectId,
-          threadId,
-          archivedBy: req.user._id
+          threadId: threadId || null,
+          clearedBy: req.user.username
         });
       }
 
       res.json({
-        message: 'Thread archived successfully'
+        message: threadId ? 'Thread cleared successfully' : 'Chat history cleared successfully',
+        remainingMessages: chat.messages.length
       });
 
     } catch (error) {
-      console.error('Error archiving thread:', error);
-      res.status(400).json({
-        error: 'Failed to archive thread',
-        message: error.message || 'Unable to archive thread'
+      console.error('Error clearing chat:', error);
+      res.status(500).json({
+        error: 'Server error',
+        message: 'Failed to clear chat history'
       });
     }
   }
 );
 
-// Add reaction to message
-router.post('/project/:projectId/message/:messageId/reaction',
-  paramValidation.projectId,
-  paramValidation.messageId,
-  handleValidationErrors,
-  requireProjectAccess('view'),
+// Get chat statistics
+router.get('/:projectId/stats',
+  requireAuth,
+  requireProjectAccess(),
   async (req, res) => {
     try {
-      const { projectId, messageId } = req.params;
-      const { emoji } = req.body;
+      const { projectId } = req.params;
 
-      if (!emoji || emoji.length > 10) {
-        return res.status(400).json({
-          error: 'Invalid emoji',
-          message: 'Emoji is required and must be less than 10 characters'
-        });
-      }
-
-      const chat = await Chat.findByProject(projectId);
-      
+      const chat = await Chat.findOne({ projectId });
       if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
+        return res.json({
+          totalMessages: 0,
+          totalTokens: 0,
+          totalCost: 0,
+          messagesThisMonth: 0,
+          tokensThisMonth: 0,
+          costThisMonth: 0
         });
       }
 
-      await chat.addReaction(messageId, emoji, req.user._id);
+      // Calculate monthly stats
+      const thisMonth = new Date();
+      thisMonth.setDate(1);
+      thisMonth.setHours(0, 0, 0, 0);
 
-      // Notify other users
-      if (req.io) {
-        req.io.to(`project:${projectId}`).emit('chat:reaction_added', {
-          projectId,
-          messageId,
-          emoji,
-          userId: req.user._id
-        });
-      }
+      const monthlyMessages = chat.messages.filter(msg => 
+        msg.createdAt >= thisMonth && msg.type === 'assistant'
+      );
+
+      const monthlyTokens = monthlyMessages.reduce((sum, msg) => 
+        sum + (msg.tokens?.total || 0), 0
+      );
+
+      const monthlyCost = monthlyMessages.reduce((sum, msg) => 
+        sum + (msg.cost || 0), 0
+      );
 
       res.json({
-        message: 'Reaction added successfully'
+        totalMessages: chat.stats?.totalMessages || chat.messages.length,
+        totalTokens: chat.stats?.totalTokens || 0,
+        totalCost: chat.stats?.totalCost || 0,
+        messagesThisMonth: monthlyMessages.length,
+        tokensThisMonth: monthlyTokens,
+        costThisMonth: monthlyCost,
+        lastActivity: chat.updatedAt
       });
 
     } catch (error) {
-      console.error('Error adding reaction:', error);
-      res.status(400).json({
-        error: 'Failed to add reaction',
-        message: error.message || 'Unable to add reaction'
+      console.error('Error fetching chat stats:', error);
+      res.status(500).json({
+        error: 'Server error',
+        message: 'Failed to fetch chat statistics'
       });
     }
   }
 );
 
 // Update chat settings
-router.put('/project/:projectId/settings',
-  paramValidation.projectId,
+router.put('/:projectId/settings',
+  requireAuth,
+  requireProjectAccess('manage'),
+  chatValidation.updateSettings,
   handleValidationErrors,
-  requireProjectAccess('edit'),
   async (req, res) => {
     try {
       const { projectId } = req.params;
-      const { aiModel, temperature, maxTokens, includeContext } = req.body;
+      const { aiModel, temperature, maxTokens } = req.body;
 
-      const chat = await Chat.findByProject(projectId);
-      
+      let chat = await Chat.findOne({ projectId });
       if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
+        chat = new Chat({
+          projectId,
+          messages: [],
+          settings: {}
         });
       }
 
@@ -441,12 +369,8 @@ router.put('/project/:projectId/settings',
       if (aiModel) chat.settings.aiModel = aiModel;
       if (temperature !== undefined) chat.settings.temperature = temperature;
       if (maxTokens) chat.settings.maxTokens = maxTokens;
-      if (includeContext !== undefined) {
-        if (includeContext.files !== undefined) chat.settings.includeContext.files = includeContext.files;
-        if (includeContext.knowledge !== undefined) chat.settings.includeContext.knowledge = includeContext.knowledge;
-        if (includeContext.previousMessages !== undefined) chat.settings.includeContext.previousMessages = includeContext.previousMessages;
-      }
 
+      chat.updatedAt = new Date();
       await chat.save();
 
       res.json({
@@ -457,267 +381,47 @@ router.put('/project/:projectId/settings',
     } catch (error) {
       console.error('Error updating chat settings:', error);
       res.status(500).json({
-        error: 'Failed to update settings',
-        message: 'Unable to update chat settings'
+        error: 'Server error',
+        message: 'Failed to update chat settings'
       });
     }
   }
 );
 
-// Get chat statistics
-router.get('/project/:projectId/stats',
-  paramValidation.projectId,
-  handleValidationErrors,
-  requireProjectAccess('view'),
+// Test AI connection
+router.post('/:projectId/test',
+  requireAuth,
+  requireProjectAccess(),
+  requireAPIKey('openai'),
   async (req, res) => {
     try {
-      const { projectId } = req.params;
-      const { timeframe = 'week' } = req.query;
-
-      const chat = await Chat.findByProject(projectId);
-      
-      if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
-        });
-      }
-
-      const tokenUsage = chat.getTokenUsage(timeframe);
-      
-      res.json({
-        stats: chat.stats,
-        tokenUsage,
-        timeframe,
-        threads: chat.threads.map(thread => ({
-          id: thread.id,
-          name: thread.name,
-          messageCount: thread.messageCount,
-          isActive: thread.isActive
-        }))
+      const testResponse = await aiService.sendMessage({
+        message: 'Hello! Please respond with a brief confirmation that the AI integration is working.',
+        apiKey: req.apiKey,
+        model: 'gpt-3.5-turbo',
+        temperature: 0.3,
+        maxTokens: 50,
+        projectId: req.params.projectId,
+        userId: req.user._id,
+        includeContext: false,
+        previousMessages: []
       });
-
-    } catch (error) {
-      console.error('Error fetching chat stats:', error);
-      res.status(500).json({
-        error: 'Failed to fetch statistics',
-        message: 'Unable to retrieve chat statistics'
-      });
-    }
-  }
-);
-
-// Export chat history
-router.get('/project/:projectId/export',
-  paramValidation.projectId,
-  queryValidation.dateRange,
-  handleValidationErrors,
-  requireProjectAccess('view'),
-  async (req, res) => {
-    try {
-      const { projectId } = req.params;
-      const { format = 'json', threadId, startDate, endDate } = req.query;
-
-      const chat = await Chat.findByProject(projectId);
-      
-      if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
-        });
-      }
-
-      let messages = chat.messages;
-
-      // Filter by thread
-      if (threadId) {
-        messages = messages.filter(msg => msg.threadId === threadId);
-      }
-
-      // Filter by date range
-      if (startDate || endDate) {
-        messages = messages.filter(msg => {
-          const msgDate = new Date(msg.timestamp);
-          if (startDate && msgDate < new Date(startDate)) return false;
-          if (endDate && msgDate > new Date(endDate)) return false;
-          return true;
-        });
-      }
-
-      // Format export data
-      const exportData = {
-        projectId,
-        exportedAt: new Date().toISOString(),
-        threadId: threadId || 'all',
-        messageCount: messages.length,
-        messages: messages.map(msg => ({
-          id: msg.id,
-          type: msg.type,
-          content: msg.content,
-          author: msg.author,
-          timestamp: msg.timestamp,
-          threadId: msg.threadId,
-          tokens: msg.tokens
-        }))
-      };
-
-      // Set response headers
-      const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `chat-export-${projectId}-${timestamp}.${format}`;
-      
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-      if (format === 'csv') {
-        // Convert to CSV
-        const csvHeaders = 'ID,Type,Content,Author,Timestamp,Thread,Tokens\n';
-        const csvRows = messages.map(msg => 
-          `"${msg.id}","${msg.type}","${msg.content.replace(/"/g, '""')}","${msg.author}","${msg.timestamp}","${msg.threadId}","${msg.tokens?.total || 0}"`
-        ).join('\n');
-        
-        res.setHeader('Content-Type', 'text/csv');
-        res.send(csvHeaders + csvRows);
-      } else {
-        // Default to JSON
-        res.setHeader('Content-Type', 'application/json');
-        res.json(exportData);
-      }
-
-    } catch (error) {
-      console.error('Error exporting chat:', error);
-      res.status(500).json({
-        error: 'Failed to export chat',
-        message: 'Unable to export chat history'
-      });
-    }
-  }
-);
-
-// Clear chat history
-router.delete('/project/:projectId',
-  paramValidation.projectId,
-  handleValidationErrors,
-  requireProjectAccess('edit'),
-  async (req, res) => {
-    try {
-      const { projectId } = req.params;
-      const { threadId, confirmClear } = req.body;
-
-      if (!confirmClear) {
-        return res.status(400).json({
-          error: 'Confirmation required',
-          message: 'Please confirm chat history deletion'
-        });
-      }
-
-      const chat = await Chat.findByProject(projectId);
-      
-      if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
-        });
-      }
-
-      if (threadId && threadId !== 'all') {
-        // Clear specific thread
-        chat.messages = chat.messages.filter(msg => msg.threadId !== threadId);
-      } else {
-        // Clear all messages
-        chat.messages = [];
-      }
-
-      // Reset stats
-      chat.stats.totalMessages = chat.messages.length;
-      chat.stats.totalTokens = chat.messages.reduce((total, msg) => total + (msg.tokens?.total || 0), 0);
-      chat.stats.aiInteractions = chat.messages.filter(msg => msg.type === 'assistant').length;
-      
-      await chat.save();
-
-      // Notify other users
-      if (req.io) {
-        req.io.to(`project:${projectId}`).emit('chat:history_cleared', {
-          projectId,
-          threadId: threadId || 'all',
-          clearedBy: req.user._id
-        });
-      }
 
       res.json({
-        message: 'Chat history cleared successfully'
+        success: true,
+        message: 'AI integration test successful',
+        response: testResponse.message,
+        model: testResponse.model,
+        usage: testResponse.usage,
+        cost: testResponse.cost
       });
 
     } catch (error) {
-      console.error('Error clearing chat history:', error);
-      res.status(500).json({
-        error: 'Failed to clear chat history',
-        message: 'Unable to clear chat history'
-      });
-    }
-  }
-);
-
-// Search chat messages
-router.get('/project/:projectId/search',
-  paramValidation.projectId,
-  queryValidation.search,
-  handleValidationErrors,
-  requireProjectAccess('view'),
-  async (req, res) => {
-    try {
-      const { projectId } = req.params;
-      const { q: query, threadId, type, limit = 20 } = req.query;
-
-      if (!query || query.trim().length === 0) {
-        return res.status(400).json({
-          error: 'Query required',
-          message: 'Search query is required'
-        });
-      }
-
-      const chat = await Chat.findByProject(projectId);
-      
-      if (!chat) {
-        return res.status(404).json({
-          error: 'Chat not found',
-          message: 'No chat found for this project'
-        });
-      }
-
-      // Filter and search messages
-      let messages = chat.messages;
-
-      if (threadId) {
-        messages = messages.filter(msg => msg.threadId === threadId);
-      }
-
-      if (type) {
-        messages = messages.filter(msg => msg.type === type);
-      }
-
-      // Simple text search
-      const searchRegex = new RegExp(query, 'i');
-      const results = messages.filter(msg => 
-        searchRegex.test(msg.content)
-      ).slice(0, parseInt(limit));
-
-      res.json({
-        query,
-        results: results.map(msg => ({
-          id: msg.id,
-          type: msg.type,
-          content: msg.content,
-          author: msg.author,
-          timestamp: msg.timestamp,
-          threadId: msg.threadId
-        })),
-        count: results.length
-      });
-
-    } catch (error) {
-      console.error('Error searching chat:', error);
-      res.status(500).json({
-        error: 'Failed to search chat',
-        message: 'Unable to search chat messages'
+      console.error('AI test error:', error);
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        message: 'AI integration test failed'
       });
     }
   }

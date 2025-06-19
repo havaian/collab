@@ -1,94 +1,118 @@
-# Multi-stage build for production
+# Multi-stage Production Dockerfile
 FROM node:18-alpine AS base
-
-# Set working directory
-WORKDIR /app
 
 # Install system dependencies
 RUN apk add --no-cache \
-    dumb-init \
-    && addgroup -g 1001 -S nodejs \
-    && adduser -S nodejs -u 1001
+    git \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    musl-dev \
+    giflib-dev \
+    pixman-dev \
+    pangomm-dev \
+    libjpeg-turbo-dev \
+    freetype-dev
+
+WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 COPY client/package*.json ./client/
+COPY server/package*.json ./server/
 
-# Install dependencies with production optimizations
-RUN npm ci --only=production --silent \
-    && cd client \
-    && npm ci --only=production --silent \
-    && npm cache clean --force
+# Stage 1: Install dependencies
+FROM base AS dependencies
 
-# Build stage for client
-FROM node:18-alpine AS client-builder
-
-WORKDIR /app/client
-
-# Copy client package files
-COPY client/package*.json ./
-
-# Install all dependencies (including dev dependencies for build)
+# Install all dependencies (including devDependencies for building)
 RUN npm ci --silent
+WORKDIR /app/client
+RUN npm ci --silent
+WORKDIR /app/server  
+RUN npm ci --silent
+WORKDIR /app
 
-# Copy client source code
-COPY client/ ./
+# Stage 2: Build frontend
+FROM dependencies AS frontend-build
 
-# Build client for production
+# Copy frontend source
+COPY client/ ./client/
+COPY client/tsconfig.json ./
+COPY client/vite.config.ts ./
+
+# Build frontend
+WORKDIR /app/client
 RUN npm run build
 
-# Production stage
+# Stage 3: Prepare backend
+FROM dependencies AS backend-build
+
+# Copy backend source
+COPY server/ ./server/
+COPY .env* ./
+
+# If you have backend TypeScript, build it
+# WORKDIR /app/server
+# RUN npm run build
+
+# Stage 4: Production image
 FROM node:18-alpine AS production
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install only runtime dependencies
+RUN apk add --no-cache \
+    dumb-init \
+    cairo \
+    jpeg \
+    pango \
+    musl \
+    giflib \
+    pixman \
+    pangomm \
+    libjpeg-turbo \
+    freetype
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs \
-    && adduser -S nodejs -u 1001
+# Create app user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
 
-# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY server/package*.json ./server/
 
 # Install only production dependencies
-RUN npm ci --only=production --silent \
-    && npm cache clean --force
+RUN npm ci --only=production --silent && npm cache clean --force
+WORKDIR /app/server
+RUN npm ci --only=production --silent && npm cache clean --force
+WORKDIR /app
 
-# Copy server source code
-COPY server/ ./server/
+# Copy built frontend from frontend-build stage
+COPY --from=frontend-build --chown=nextjs:nodejs /app/client/dist ./client/dist
 
-# Copy built client from builder stage
-COPY --from=client-builder /app/client/dist ./client/dist
+# Copy backend source and built files
+COPY --from=backend-build --chown=nextjs:nodejs /app/server ./server
+COPY --from=backend-build --chown=nextjs:nodejs /app/.env* ./
 
-# Create necessary directories and set permissions
-RUN mkdir -p data/uploads temp logs \
-    && chown -R nodejs:nodejs /app
+# Copy root level files needed for production
+COPY --chown=nextjs:nodejs package*.json ./
+
+# Create necessary directories
+RUN mkdir -p /app/server/uploads /app/logs && \
+    chown -R nextjs:nodejs /app/server/uploads /app/logs
 
 # Switch to non-root user
-USER nodejs
+USER nextjs
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e " \
-        const http = require('http'); \
-        const options = { \
-            host: 'localhost', \
-            port: process.env.PORT || 3000, \
-            path: '/api/health', \
-            timeout: 2000 \
-        }; \
-        const request = http.request(options, (res) => { \
-            console.log('Health check status:', res.statusCode); \
-            process.exit(res.statusCode === 200 ? 0 : 1); \
-        }); \
-        request.on('error', () => process.exit(1)); \
-        request.end();"
+    CMD node -e "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]

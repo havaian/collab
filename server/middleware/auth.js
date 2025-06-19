@@ -27,6 +27,9 @@ const authenticateJWT = (req, res, next) => {
   })(req, res, next);
 };
 
+// Alias for authenticateJWT (for consistency with existing code)
+const requireAuth = authenticateJWT;
+
 // Optional JWT Authentication (doesn't fail if no token)
 const optionalJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -119,12 +122,19 @@ const requireProjectAccess = (action = 'view') => {
         });
       }
       
+      // Map action names for compatibility
+      const actionMap = {
+        'collaborate': 'edit',
+        'manage': 'delete'
+      };
+      const mappedAction = actionMap[action] || action;
+      
       // Check if user has required access
-      if (!project.canUserAccess(req.user._id, action)) {
+      if (!project.canUserAccess(req.user._id, mappedAction)) {
         return res.status(403).json({
           error: 'Access denied',
           message: `You don't have permission to ${action} this project`,
-          requiredRole: getRequiredRole(action)
+          requiredRole: getRequiredRole(mappedAction)
         });
       }
       
@@ -313,7 +323,9 @@ const getRequiredRole = (action) => {
     'delete': 'owner',
     'invite': 'collaborator',
     'execute': 'collaborator',
-    'ai': 'viewer'
+    'ai': 'viewer',
+    'collaborate': 'collaborator',
+    'manage': 'owner'
   };
   
   return roleMap[action] || 'viewer';
@@ -359,6 +371,7 @@ const validateRefreshToken = async (token) => {
 
 module.exports = {
   authenticateJWT,
+  requireAuth, // Added alias
   optionalJWT,
   requireVerified,
   requireActive,
