@@ -1,0 +1,32 @@
+{
+  "name": "gpt-collaboration-app",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "server": "node server/index.js"
+  },
+  "dependencies": {
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.5",
+    "pinia": "^2.2.4",
+    "axios": "^1.7.7",
+    "socket.io-client": "^4.8.0",
+    "@vueuse/core": "^11.1.0",
+    "monaco-editor": "^0.52.0",
+    "lucide-vue-next": "^0.447.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.3",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.2",
+    "vue-tsc": "^2.1.4",
+    "tailwindcss": "^3.4.13",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "@types/node": "^22.7.4"
+  }
+}
