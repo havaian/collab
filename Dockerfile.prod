@@ -74,9 +74,9 @@ RUN apk add --no-cache \
     libjpeg-turbo \
     freetype
 
-# Create app user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+# # Create app user
+# RUN addgroup -g 1001 -S nodejs
+# RUN adduser -S nextjs -u 1001
 
 WORKDIR /app
 
@@ -90,19 +90,20 @@ WORKDIR /app/server
 RUN npm ci --only=production --silent && npm cache clean --force
 WORKDIR /app
 
-# Copy built frontend from frontend-build stage
-COPY --from=frontend-build --chown=nextjs:nodejs /app/client/dist ./client/dist
+# # Copy built frontend from frontend-build stage
+# COPY --from=frontend-build --chown=nextjs:nodejs /app/client/dist ./client/dist
 
-# Copy backend source and built files
-COPY --from=backend-build --chown=nextjs:nodejs /app/server ./server
-COPY --from=backend-build --chown=nextjs:nodejs /app/.env* ./
+# # Copy backend source and built files
+# COPY --from=backend-build --chown=nextjs:nodejs /app/server ./server
+# COPY --from=backend-build --chown=nextjs:nodejs /app/.env* ./
 
-# Copy root level files needed for production
-COPY --chown=nextjs:nodejs package*.json ./
+# # Copy root level files needed for production
+# COPY --chown=nextjs:nodejs package*.json ./
 
 # Create necessary directories
-RUN mkdir -p /app/server/uploads /app/logs && \
-    chown -R nextjs:nodejs /app/server/uploads /app/logs
+RUN mkdir -p /app/server/uploads /app/logs 
+    # && \
+    # chown -R nextjs:nodejs /app/server/uploads /app/logs
 
 # Switch to non-root user
 USER nextjs

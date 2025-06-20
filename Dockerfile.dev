@@ -45,9 +45,9 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p /app/client/dist /app/server/uploads /app/logs
 
-# Set proper permissions
-RUN chown -R node:node /app
-USER node
+# # Set proper permissions
+# RUN chown -R node:node /app
+# USER node
 
 # Expose ports
 EXPOSE 3000 5000
