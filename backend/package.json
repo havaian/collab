@@ -1,22 +1,12 @@
 {
-  "name": "gpt-collaboration-app-server",
+  "name": "gpt-collaboration-app-backend",
   "version": "1.0.0",
   "description": "Backend server for GPT Collaboration App - Collaborative platform for AI-assisted project development",
+  "private": true,
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest --detectOpenHandles",
-    "test:watch": "jest --watch --detectOpenHandles",
-    "test:coverage": "jest --coverage --detectOpenHandles",
-    "lint": "eslint . --ext .js --fix",
-    "lint:check": "eslint . --ext .js",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "db:seed": "node scripts/seed-database.js",
-    "db:migrate": "node scripts/migrate-database.js",
-    "backup": "node scripts/backup-database.js",
-    "health": "curl -f http://localhost:${PORT:-5000}/api/health || exit 1"
+    "start": "node index.js"
   },
   "keywords": [
     "collaboration",
@@ -29,7 +19,7 @@
     "real-time",
     "code-execution"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "Malik Havaian m.usman.work@gmail.com",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0",

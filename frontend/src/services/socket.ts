@@ -12,7 +12,7 @@ class SocketService {
   connect(token: string) {
     if (this.socket?.connected) return
 
-    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:10141'
     
     this.socket = io(serverUrl, {
       auth: { token },

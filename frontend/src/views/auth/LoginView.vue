@@ -162,7 +162,7 @@ const handleLogin = async () => {
 const handleOAuthLogin = async (provider: 'github' | 'google') => {
   try {
     // For OAuth, redirect to backend OAuth endpoints
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/${provider}`
+    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:10141'}/auth/${provider}`
   } catch (error) {
     console.error(`${provider} login failed:`, error)
   }
