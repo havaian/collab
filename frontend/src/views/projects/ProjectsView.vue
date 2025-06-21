@@ -216,83 +216,35 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { 
-  ArrowLeft, Plus, FolderOpen, Users, MessageSquare, 
-  MoreVertical, Edit, Trash2 
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import {
+  ArrowLeft,
+  Users,
+  Settings,
+  FileText,
+  FileCode,
+  MessageSquare,
+  Plus,
+  User
 } from 'lucide-vue-next'
 import { useProjectsStore } from '@/stores/projects'
-import type { Project } from '@/types'
+import { formatLongDate } from '@/utils/dateUtils'
 
+const route = useRoute()
 const projectsStore = useProjectsStore()
 
-const showCreateModal = ref(false)
-const activeProjectMenu = ref<string | null>(null)
+const id = computed(() => route.params.id as string)
+const project = computed(() => projectsStore.getProject(id.value))
 
-const newProject = reactive({
-  name: '',
-  description: ''
-})
+// Remove the old formatDate function - use formatLongDate from utils instead
 
-const formatDate = (date: Date) => {
-  return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
-    Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-    'day'
-  )
-}
-
-const toggleProjectMenu = (projectId: string) => {
-  activeProjectMenu.value = activeProjectMenu.value === projectId ? null : projectId
-}
-
-const createProject = async () => {
-  try {
-    await projectsStore.createProject({
-      name: newProject.name,
-      description: newProject.description
-    })
-    
-    // Reset form
-    newProject.name = ''
-    newProject.description = ''
-    showCreateModal.value = false
-  } catch (error) {
-    console.error('Failed to create project:', error)
+onMounted(() => {
+  if (!project.value) {
+    projectsStore.fetchProjects()
   }
-}
-
-const editProject = (project: Project) => {
-  // TODO: Implement edit functionality
-  console.log('Edit project:', project)
-  activeProjectMenu.value = null
-}
-
-const deleteProject = async (projectId: string) => {
-  if (confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
-    try {
-      await projectsStore.deleteProject(projectId)
-    } catch (error) {
-      console.error('Failed to delete project:', error)
-    }
-  }
-  activeProjectMenu.value = null
-}
-
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (!target.closest('.relative')) {
-    activeProjectMenu.value = null
-  }
-}
-
-onMounted(async () => {
-  document.addEventListener('click', handleClickOutside)
-  if (projectsStore.projects.length === 0) {
-    await projectsStore.fetchProjects()
-  }
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
 })
 </script>
+
+<!-- In template, change: {{ formatDate(project.createdAt) }} to {{ formatLongDate(project.createdAt) }} -->
+<!-- And: {{ formatDate(project.updatedAt) }} to {{ formatLongDate(project.updatedAt) }} -->

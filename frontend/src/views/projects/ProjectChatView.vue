@@ -294,9 +294,9 @@ const loading = ref(false)
 const newMessage = ref('')
 const messagesContainer = ref<HTMLElement>()
 
-const onlineUsers = ref([
-  { id: '1', username: 'You', avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400' }
-])
+const onlineUsers = ref([])
+const messages = ref([])
+const files = ref([])
 
 const typingUsers = ref<string[]>([])
 const contextItems = ref<KnowledgeItem[]>([])

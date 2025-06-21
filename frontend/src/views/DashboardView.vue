@@ -23,7 +23,7 @@
             <div class="relative">
               <img
                 class="h-8 w-8 rounded-full"
-                :src="authStore.user?.avatar || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400'"
+                :src="authStore.user?.avatar || ''"
                 :alt="authStore.user?.username"
               />
             </div>
@@ -182,6 +182,7 @@ import { computed, onMounted } from 'vue'
 import { FileCode, Bell, Plus, FolderOpen, Users, Clock } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useProjectsStore } from '@/stores/projects'
+import { formatRelativeTime } from '@/utils/dateUtils'
 
 const authStore = useAuthStore()
 const projectsStore = useProjectsStore()
@@ -196,12 +197,7 @@ const collaborationCount = computed(() => {
   ).length
 })
 
-const formatDate = (date: Date) => {
-  return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
-    Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-    'day'
-  )
-}
+// Remove the old formatDate function - use formatRelativeTime from utils instead
 
 onMounted(async () => {
   if (projectsStore.projects.length === 0) {
@@ -209,3 +205,5 @@ onMounted(async () => {
   }
 })
 </script>
+
+<!-- In template, change: {{ formatDate(project.updatedAt) }} to {{ formatRelativeTime(project.updatedAt) }} -->

@@ -160,31 +160,40 @@ const trackUsage = (type) => {
   return async (req, res, next) => {
     if (req.user) {
       try {
-        // Track usage in user model or separate usage collection
-        req.user.usage = req.user.usage || {};
-        req.user.usage.lastActive = new Date();
+        // Use atomic update instead of save() to prevent parallel save errors
+        const updateDoc = {
+          $set: {
+            'usage.lastActive': new Date()
+          },
+          $inc: {}
+        };
         
         // Increment specific usage counters
         switch (type) {
           case 'execution':
-            req.user.usage.totalExecutions = (req.user.usage.totalExecutions || 0) + 1;
+            updateDoc.$inc['usage.totalExecutions'] = 1;
             break;
           case 'ai_interaction':
-            req.user.usage.totalAIInteractions = (req.user.usage.totalAIInteractions || 0) + 1;
+            updateDoc.$inc['usage.totalAIInteractions'] = 1;
             break;
           case 'file_operation':
-            req.user.usage.totalFileOperations = (req.user.usage.totalFileOperations || 0) + 1;
+            updateDoc.$inc['usage.totalFileOperations'] = 1;
+            break;
+          case 'project_creation':
+            updateDoc.$inc['usage.totalProjects'] = 1;
             break;
           default:
             break;
         }
         
-        // Save usage (async, don't wait)
-        req.user.save().catch(err => {
-          console.error('Error saving user usage:', err);
-        });
+        // Use atomic update instead of save() to prevent parallel save errors
+        await req.user.constructor.updateOne(
+          { _id: req.user._id },
+          updateDoc
+        );
       } catch (error) {
         console.error('Error tracking usage:', error);
+        // Don't block the request if usage tracking fails
       }
     }
     next();

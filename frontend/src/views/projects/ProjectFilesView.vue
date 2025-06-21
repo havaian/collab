@@ -330,7 +330,7 @@
                 </div>
                 <div class="flex items-center space-x-2">
                   <span class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ formatDate(version.modifiedAt) }}
+                    {{ formatRelativeTime(file.lastModified) }}
                   </span>
                   <button
                     @click="restoreVersion(version)"
@@ -363,6 +363,7 @@ import { useProjectsStore } from '@/stores/projects'
 import { filesAPI, codeExecutionAPI } from '@/services/api'
 import socketService from '@/services/socket'
 import type { ProjectFile, Project, FileHistory } from '@/types'
+import { formatRelativeTime, formatFileSize } from '@/utils/dateUtils'
 
 const route = useRoute()
 const projectsStore = useProjectsStore()
@@ -388,7 +389,7 @@ const activeEditors = ref([
   {
     userId: '1',
     username: 'You',
-    avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400',
+    avatar: '',
     cursorColor: '#3B82F6',
     isTyping: false
   }
@@ -445,21 +446,6 @@ const getFileIconColor = (type: string, name: string) => {
     default:
       return 'text-gray-500'
   }
-}
-
-const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-}
-
-const formatDate = (date: Date) => {
-  return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
-    Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-    'day'
-  )
 }
 
 const canExecuteFile = (file: ProjectFile) => {

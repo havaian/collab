@@ -349,6 +349,42 @@ chatSchema.statics.getUsageStats = async function(projectId, startDate, endDate)
   };
 };
 
+chatSchema.statics.createForProject = async function(projectId) {
+  try {
+    // Check if chat already exists for this project
+    const existingChat = await this.findOne({ projectId });
+    
+    if (existingChat) {
+      return existingChat;
+    }
+    
+    // Create new chat for the project
+    const newChat = new this({
+      projectId,
+      messages: [],
+      settings: {
+        aiModel: 'gpt-3.5-turbo',
+        temperature: 0.7,
+        maxTokens: 2000,
+        includeContext: true
+      },
+      stats: {
+        totalMessages: 0,
+        totalTokens: 0,
+        totalCost: 0,
+        lastActivity: new Date()
+      },
+      threads: []
+    });
+    
+    await newChat.save();
+    return newChat;
+  } catch (error) {
+    console.error('Error creating chat for project:', error);
+    throw error;
+  }
+};
+
 // Pre-save middleware
 chatSchema.pre('save', function(next) {
   if (this.isModified('messages')) {

@@ -121,10 +121,9 @@ router.post('/',
       // Create default chat for project
       await Chat.createForProject(project._id);
 
-      // Update user project count
-      req.user.usage.totalProjects += 1;
-      await req.user.save();
-
+      // Use atomic update for user project count instead of save()
+      // The trackUsage middleware already increments totalProjects, so we don't need to do it again here
+      
       // Populate owner info for response
       await project.populate('owner', 'username email avatar');
 
