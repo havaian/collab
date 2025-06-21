@@ -1,34 +1,23 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watch } from 'vue'
-import type { User } from '@/types'
+import { ref, computed } from 'vue'
 import { authAPI } from '@/services/api'
+import type { User } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
+  // State
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const isAuthenticated = computed(() => !!user.value && !!token.value)
+  // Getters
+  const isAuthenticated = computed(() => user.value !== null)
+  const hasToken = computed(() => token.value !== null)
 
-  // Watch for changes and persist to localStorage
-  watch(
-    [user, token],
-    ([newUser, newToken]) => {
-      if (newUser && newToken) {
-        localStorage.setItem('auth_token', newToken)
-        localStorage.setItem('auth_user', JSON.stringify({
-          ...newUser, 
-          createdAt: newUser.createdAt instanceof Date ? newUser.createdAt.toISOString() : newUser.createdAt,
-          lastActive: newUser.lastActive instanceof Date ? newUser.lastActive.toISOString() : newUser.lastActive
-        }))
-      } else {
-        localStorage.removeItem('auth_token')
-        localStorage.removeItem('auth_user')
-      }
-    },
-    { deep: true }
-  )
+  // Actions
+  const clearError = () => {
+    error.value = null
+  }
 
   const login = async (credentials: { email: string; password: string }) => {
     loading.value = true
@@ -38,19 +27,25 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authAPI.login(credentials)
       const data = response.data
       
-      // Transform backend response to frontend User type
+      // Transform backend user data to frontend format
       user.value = {
         id: data.user.id,
         username: data.user.username,
         email: data.user.email,
         avatar: data.user.avatar || '',
         displayName: data.user.displayName,
-        preferences: data.user.preferences,
-        isVerified: data.user.isVerified,
+        preferences: data.user.preferences || {},
+        usage: data.user.usage || {},
+        isVerified: data.user.isVerified || false,
         createdAt: new Date(),
         lastActive: new Date()
       }
+      
       token.value = data.token
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('auth_token', data.token)
+      localStorage.setItem('auth_user', JSON.stringify(user.value))
       
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Login failed. Please try again.'
@@ -60,18 +55,66 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const loginWithOAuth = (provider: 'github' | 'google') => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:10141'
-    window.location.href = `${API_BASE_URL}/api/auth/${provider}`
+  const register = async (userData: {
+    username: string
+    email: string
+    password: string
+  }) => {
+    loading.value = true
+    error.value = null
+    
+    try {
+      const response = await authAPI.register(userData)
+      const data = response.data
+      
+      // Auto-login after successful registration
+      user.value = {
+        id: data.user.id,
+        username: data.user.username,
+        email: data.user.email,
+        avatar: data.user.avatar || '',
+        displayName: data.user.displayName,
+        preferences: data.user.preferences || {},
+        usage: data.user.usage || {},
+        isVerified: data.user.isVerified || false,
+        createdAt: new Date(),
+        lastActive: new Date()
+      }
+      
+      token.value = data.token
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('auth_token', data.token)
+      localStorage.setItem('auth_user', JSON.stringify(user.value))
+      
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Registration failed. Please try again.'
+      throw err
+    } finally {
+      loading.value = false
+    }
   }
 
-  const handleOAuthCallback = async (token: string) => {
+  const loginWithOAuth = (provider: 'github' | 'google') => {
+    // Clear any existing errors
+    error.value = null
+    
+    // Use the API service to get the correct OAuth URL
+    const authUrl = provider === 'github' 
+      ? authAPI.getGithubAuthUrl() 
+      : authAPI.getGoogleAuthUrl()
+    
+    // Redirect to OAuth provider
+    window.location.href = authUrl
+  }
+
+  const handleOAuthCallback = async (authToken: string) => {
     loading.value = true
     error.value = null
     
     try {
       // Set token temporarily to get user data
-      localStorage.setItem('auth_token', token)
+      localStorage.setItem('auth_token', authToken)
       
       const response = await authAPI.getProfile()
       const data = response.data
@@ -83,13 +126,16 @@ export const useAuthStore = defineStore('auth', () => {
         email: data.user.email,
         avatar: data.user.avatar || '',
         displayName: data.user.displayName,
-        preferences: data.user.preferences,
-        usage: data.user.usage,
-        isVerified: data.user.isVerified,
+        preferences: data.user.preferences || {},
+        usage: data.user.usage || {},
+        isVerified: data.user.isVerified || false,
         createdAt: new Date(),
         lastActive: new Date()
       }
-      this.token = token
+      
+      // Store the token
+      token.value = authToken
+      localStorage.setItem('auth_user', JSON.stringify(user.value))
       
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Authentication failed'
@@ -102,14 +148,81 @@ export const useAuthStore = defineStore('auth', () => {
 
   const logout = async () => {
     try {
+      // Call logout API if we have a token
       if (token.value) {
         await authAPI.logout()
       }
     } catch (err) {
       console.error('Logout API call failed:', err)
     } finally {
+      // Clear state regardless of API call success
       user.value = null
       token.value = null
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_user')
+    }
+  }
+
+  const updateProfile = async (profileData: Partial<User>) => {
+    loading.value = true
+    error.value = null
+    
+    try {
+      const response = await authAPI.updateProfile(profileData)
+      const data = response.data
+      
+      // Update user data
+      if (user.value) {
+        user.value = {
+          ...user.value,
+          ...data.user
+        }
+        localStorage.setItem('auth_user', JSON.stringify(user.value))
+      }
+      
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to update profile'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const changePassword = async (passwordData: {
+    currentPassword: string
+    newPassword: string
+  }) => {
+    loading.value = true
+    error.value = null
+    
+    try {
+      await authAPI.changePassword(passwordData)
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to change password'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const deleteAccount = async (password: string) => {
+    loading.value = true
+    error.value = null
+    
+    try {
+      await authAPI.deleteAccount(password)
+      
+      // Clear all data after successful account deletion
+      user.value = null
+      token.value = null
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_user')
+      
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to delete account'
+      throw err
+    } finally {
+      loading.value = false
     }
   }
 
@@ -131,69 +244,136 @@ export const useAuthStore = defineStore('auth', () => {
             email: data.user.email,
             avatar: data.user.avatar || '',
             displayName: data.user.displayName,
-            preferences: data.user.preferences,
-            usage: data.user.usage,
-            isVerified: data.user.isVerified,
+            preferences: data.user.preferences || {},
+            usage: data.user.usage || {},
+            isVerified: data.user.isVerified || false,
             createdAt: new Date(),
             lastActive: new Date()
           }
           token.value = storedToken
           
-          console.log('Auth restored from server:', { user: data.user, hasToken: !!storedToken })
+          console.log('Auth restored from server:', { 
+            user: data.user, 
+            hasToken: !!storedToken 
+          })
+          
         } catch (err) {
-          // Token is invalid, clear storage (axios interceptor will handle this)
-          console.log('Token validation failed, clearing storage')
+          console.error('Token verification failed:', err)
+          // Clear invalid stored data
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('auth_user')
+          user.value = null
+          token.value = null
         }
       }
     } catch (err) {
-      console.error('Failed to restore auth:', err)
-      localStorage.removeItem('auth_user')
-      localStorage.removeItem('auth_token')
+      console.error('Auth initialization failed:', err)
     }
   }
 
-  const updateUserProfile = async (updates: Partial<User>) => {
-    if (!token.value) {
-      throw new Error('Not authenticated')
-    }
-    
-    loading.value = true
-    error.value = null
-    
+  // API Key management methods
+  const getApiKeys = async () => {
     try {
-      const response = await authAPI.updateProfile(updates)
-      const data = response.data
-      
-      // Update user data
-      if (user.value) {
-        user.value = {
-          ...user.value,
-          ...data.user,
-          id: data.user.id,
-          createdAt: user.value.createdAt,
-          lastActive: new Date()
-        }
-      }
-      
+      const response = await authAPI.getApiKeys()
+      return response.data
     } catch (err: any) {
-      error.value = err.response?.data?.message || 'Failed to update profile'
+      error.value = err.response?.data?.message || 'Failed to fetch API keys'
       throw err
-    } finally {
-      loading.value = false
+    }
+  }
+
+  const updateApiKey = async (service: string, apiKey: string) => {
+    try {
+      await authAPI.updateApiKey(service, apiKey)
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to update API key'
+      throw err
+    }
+  }
+
+  const deleteApiKey = async (service: string) => {
+    try {
+      await authAPI.deleteApiKey(service)
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to delete API key'
+      throw err
+    }
+  }
+
+  // Email verification methods
+  const resendVerification = async () => {
+    try {
+      await authAPI.resendVerification()
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to resend verification email'
+      throw err
+    }
+  }
+
+  const verifyEmail = async (verificationToken: string) => {
+    try {
+      await authAPI.verifyEmail(verificationToken)
+      // Refresh user data
+      await initializeAuth()
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Email verification failed'
+      throw err
+    }
+  }
+
+  // Password reset methods
+  const requestPasswordReset = async (email: string) => {
+    try {
+      await authAPI.requestPasswordReset(email)
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to send password reset email'
+      throw err
+    }
+  }
+
+  const resetPassword = async (resetToken: string, newPassword: string) => {
+    try {
+      await authAPI.resetPassword(resetToken, newPassword)
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Password reset failed'
+      throw err
     }
   }
 
   return {
+    // State
     user,
     token,
     loading,
     error,
+    
+    // Getters
     isAuthenticated,
+    hasToken,
+    
+    // Actions
+    clearError,
     login,
+    register,
     loginWithOAuth,
     handleOAuthCallback,
     logout,
+    updateProfile,
+    changePassword,
+    deleteAccount,
     initializeAuth,
-    updateUserProfile
+    
+    // API Key management
+    getApiKeys,
+    updateApiKey,
+    deleteApiKey,
+    
+    // Email verification
+    resendVerification,
+    verifyEmail,
+    
+    // Password reset
+    requestPasswordReset,
+    resetPassword
   }
 })

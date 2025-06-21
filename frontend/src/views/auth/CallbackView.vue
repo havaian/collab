@@ -7,11 +7,14 @@
           <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
             Completing authentication...
           </h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            Please wait while we complete your {{ provider }} login
+          </p>
         </div>
         
         <div v-else-if="error" class="space-y-4">
-          <div class="rounded-full h-12 w-12 bg-red-100 flex items-center justify-center mx-auto">
-            <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="rounded-full h-12 w-12 bg-red-100 dark:bg-red-900 flex items-center justify-center mx-auto">
+            <svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
@@ -19,9 +22,34 @@
             Authentication Failed
           </h2>
           <p class="text-gray-600 dark:text-gray-400">{{ error }}</p>
-          <router-link to="/login" class="btn btn-primary">
-            Try Again
-          </router-link>
+          <div class="space-y-2">
+            <button 
+              @click="retryAuthentication"
+              class="w-full inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            >
+              Try Again
+            </button>
+            <router-link 
+              to="/login" 
+              class="w-full inline-flex justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            >
+              Back to Login
+            </router-link>
+          </div>
+        </div>
+
+        <div v-else-if="success" class="space-y-4">
+          <div class="rounded-full h-12 w-12 bg-green-100 dark:bg-green-900 flex items-center justify-center mx-auto">
+            <svg class="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+            Authentication Successful!
+          </h2>
+          <p class="text-gray-600 dark:text-gray-400">
+            Redirecting to dashboard...
+          </p>
         </div>
       </div>
     </div>
@@ -39,33 +67,84 @@ const authStore = useAuthStore()
 
 const processing = ref(true)
 const error = ref<string | null>(null)
+const success = ref(false)
+const provider = ref<string>('')
 
-onMounted(async () => {
+const processOAuthCallback = async () => {
   try {
-    const { token, provider, error: urlError } = route.query
+    processing.value = true
+    error.value = null
+    success.value = false
+
+    // Extract query parameters
+    const { token, provider: oauthProvider, error: urlError } = route.query
     
+    console.log('OAuth callback received:', { 
+      hasToken: !!token, 
+      provider: oauthProvider, 
+      error: urlError 
+    })
+
+    // Set provider for display
+    if (oauthProvider) {
+      provider.value = oauthProvider as string
+    }
+    
+    // Check for OAuth error from URL
     if (urlError) {
-      error.value = 'OAuth authentication failed'
-      processing.value = false
-      return
+      throw new Error(`OAuth ${urlError === 'oauth_failed' ? 'authentication failed' : urlError}`)
     }
     
-    if (token && provider) {
-      console.log('OAuth callback received:', { token, provider })
-      
-      // Handle the OAuth callback with the real token
-      await authStore.handleOAuthCallback(token as string)
-      
-      // Redirect to dashboard
-      router.push('/dashboard')
-    } else {
-      error.value = 'Missing authentication token'
-      processing.value = false
+    // Validate required parameters
+    if (!token) {
+      throw new Error('Missing authentication token')
     }
+
+    if (!oauthProvider) {
+      throw new Error('Missing OAuth provider information')
+    }
+
+    console.log('Processing OAuth callback for provider:', oauthProvider)
+    
+    // Handle the OAuth callback with the token
+    await authStore.handleOAuthCallback(token as string)
+    
+    console.log('OAuth callback processed successfully')
+    
+    // Show success state briefly before redirecting
+    success.value = true
+    processing.value = false
+    
+    // Redirect to dashboard after a short delay
+    setTimeout(() => {
+      const redirectPath = (route.query.redirect as string) || '/dashboard'
+      router.push(redirectPath)
+    }, 1500)
+    
   } catch (err: any) {
     console.error('OAuth callback error:', err)
-    error.value = err.message || 'Failed to complete authentication'
     processing.value = false
+    
+    // Provide more specific error messages
+    if (err.message?.includes('Network Error') || err.code === 'NETWORK_ERROR') {
+      error.value = 'Unable to connect to the server. Please check your internet connection.'
+    } else if (err.message?.includes('Invalid or expired token')) {
+      error.value = 'The authentication token has expired. Please try logging in again.'
+    } else if (err.message?.includes('Authentication failed')) {
+      error.value = 'Authentication failed. Please try logging in again.'
+    } else {
+      error.value = err.message || 'Failed to complete authentication'
+    }
   }
+}
+
+const retryAuthentication = () => {
+  // Retry the authentication process
+  processOAuthCallback()
+}
+
+// Process OAuth callback when component mounts
+onMounted(() => {
+  processOAuthCallback()
 })
 </script>

@@ -1,18 +1,19 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
       <div>
-        <div class="flex justify-center">
-          <div class="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center">
-            <FileCode class="w-6 h-6 text-white" />
-          </div>
+        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900">
+          <FileCode class="h-8 w-8 text-primary-600 dark:text-primary-400" />
         </div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
           Sign in to your account
         </h2>
         <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
           Or
-          <router-link to="/register" class="font-medium text-primary-600 hover:text-primary-500">
+          <router-link 
+            to="/register" 
+            class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400"
+          >
             create a new account
           </router-link>
         </p>
@@ -29,20 +30,7 @@
               type="email"
               autocomplete="email"
               required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-              placeholder="Email address"
-            />
-          </div>
-          <div>
-            <label for="password" class="sr-only">Password</label>
-            <input
-              id="password"
-              v-model="form.password"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+              class="relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-b-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
               placeholder="Password"
             />
           </div>
@@ -55,7 +43,7 @@
               v-model="form.remember"
               name="remember-me"
               type="checkbox"
-              class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
             />
             <label for="remember-me" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
               Remember me
@@ -63,7 +51,7 @@
           </div>
 
           <div class="text-sm">
-            <a href="#" class="font-medium text-primary-600 hover:text-primary-500">
+            <a href="#" class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400">
               Forgot your password?
             </a>
           </div>
@@ -159,10 +147,10 @@ const handleLogin = async () => {
   }
 }
 
-const handleOAuthLogin = async (provider: 'github' | 'google') => {
+const handleOAuthLogin = (provider: 'github' | 'google') => {
   try {
-    // For OAuth, redirect to backend OAuth endpoints
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:10141'}/api/auth/${provider}`
+    // Use the auth store method instead of constructing URL manually
+    authStore.loginWithOAuth(provider)
   } catch (error) {
     console.error(`${provider} login failed:`, error)
   }

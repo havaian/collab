@@ -5,20 +5,20 @@ const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 const User = require('../models/User');
 
-const configurePassport = (app) => {
-  // Initialize Passport
+module.exports = (app) => {
+  // Initialize Passport BEFORE configuring strategies
   app.use(passport.initialize());
 
-  // JWT Strategy for API authentication
-  passport.use(new JwtStrategy({
+  // JWT Strategy for API authentication - MUST BE FIRST
+  passport.use('jwt', new JwtStrategy({
     jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
     secretOrKey: process.env.JWT_SECRET,
-    passReqToCallback: true
-  }, async (req, jwt_payload, done) => {
+    passReqToCallback: false // Changed to false as we don't need req in this strategy
+  }, async (jwt_payload, done) => {
     try {
       const user = await User.findById(jwt_payload.id).select('-password');
       
-      if (user) {
+      if (user && user.isActive) {
         // Update last active
         user.updateLastActive();
         return done(null, user);
@@ -33,10 +33,11 @@ const configurePassport = (app) => {
 
   // GitHub OAuth Strategy
   if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-    passport.use(new GitHubStrategy({
+    passport.use('github', new GitHubStrategy({
       clientID: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      callbackURL: "/auth/github/callback",
+      // FIXED: Use correct callback URL with /api prefix
+      callbackURL: "/api/auth/github/callback",
       scope: ['user:email']
     }, async (accessToken, refreshToken, profile, done) => {
       try {
@@ -83,14 +84,17 @@ const configurePassport = (app) => {
         return done(error, null);
       }
     }));
+  } else {
+    console.warn('GitHub OAuth not configured - missing CLIENT_ID or CLIENT_SECRET');
   }
 
   // Google OAuth Strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    passport.use(new GoogleStrategy({
+    passport.use('google', new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback",
+      // FIXED: Use correct callback URL with /api prefix
+      callbackURL: "/api/auth/google/callback",
       scope: ['profile', 'email']
     }, async (accessToken, refreshToken, profile, done) => {
       try {
@@ -137,9 +141,11 @@ const configurePassport = (app) => {
         return done(error, null);
       }
     }));
+  } else {
+    console.warn('Google OAuth not configured - missing CLIENT_ID or CLIENT_SECRET');
   }
 
-  // Serialize/Deserialize user for session
+  // Serialize/Deserialize user for session (though we're using stateless JWT)
   passport.serializeUser((user, done) => {
     done(null, user._id);
   });
@@ -152,6 +158,10 @@ const configurePassport = (app) => {
       done(error, null);
     }
   });
-};
 
-module.exports = configurePassport;
+  console.log('Passport strategies configured successfully:', {
+    jwt: true,
+    github: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+    google: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+  });
+};
