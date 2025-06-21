@@ -62,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const loginWithOAuth = (provider: 'github' | 'google') => {
     const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:10141'
-    window.location.href = `${API_BASE_URL}/auth/${provider}`
+    window.location.href = `${API_BASE_URL}/api/auth/${provider}`
   }
 
   const handleOAuthCallback = async (token: string) => {

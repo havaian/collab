@@ -71,7 +71,7 @@ app.use((req, res, next) => {
 app.use('/api/', rateLimiter.general);
 
 // API Routes
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/chat', chatRoutes);
