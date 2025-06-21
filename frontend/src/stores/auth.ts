@@ -15,9 +15,10 @@ export const useAuthStore = defineStore('auth', () => {
     [user, token],
     ([newUser, newToken]) => {
       if (newUser && newToken) {
+        console.log(newUser);
         localStorage.setItem('auth_token', newToken)
         localStorage.setItem('auth_user', JSON.stringify({
-          ...newUser,
+          ...newUser, 
           createdAt: newUser.createdAt instanceof Date ? newUser.createdAt.toISOString() : newUser.createdAt,
           lastActive: newUser.lastActive instanceof Date ? newUser.lastActive.toISOString() : newUser.lastActive
         }))
@@ -43,7 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
           id: '1',
           username: 'demo-user',
           email: credentials.email,
-          avatar: `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400`,
+          avatar: '',
           createdAt: new Date(),
           lastActive: new Date()
         },
@@ -74,7 +75,7 @@ export const useAuthStore = defineStore('auth', () => {
           id: '1',
           username: `${provider}-user`,
           email: `user@${provider}.com`,
-          avatar: `https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=400`,
+          avatar: '',
           createdAt: new Date(),
           lastActive: new Date()
         },

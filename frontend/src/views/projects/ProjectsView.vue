@@ -69,7 +69,7 @@
                     {{ project.name }}
                   </h3>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Created {{ formatDate(project.createdAt) }}
+                    Created {{ formatLongDate(project.updatedAt) }}
                   </p>
                 </div>
               </div>
@@ -237,14 +237,10 @@ const projectsStore = useProjectsStore()
 const id = computed(() => route.params.id as string)
 const project = computed(() => projectsStore.getProject(id.value))
 
-// Remove the old formatDate function - use formatLongDate from utils instead
-
 onMounted(() => {
   if (!project.value) {
-    projectsStore.fetchProjects()
+    const projects = projectsStore.fetchProjects();
+    console.log(projects);
   }
 })
 </script>
-
-<!-- In template, change: {{ formatDate(project.createdAt) }} to {{ formatLongDate(project.createdAt) }} -->
-<!-- And: {{ formatDate(project.updatedAt) }} to {{ formatLongDate(project.updatedAt) }} -->

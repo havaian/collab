@@ -159,7 +159,7 @@
                 </div>
                 <div class="flex items-center space-x-2">
                   <span class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ formatDate(project.updatedAt) }}
+                    {{ formatRelativeTime(project.updatedAt) }}
                   </span>
                   <router-link
                     :to="`/projects/${project.id}`"
@@ -197,13 +197,9 @@ const collaborationCount = computed(() => {
   ).length
 })
 
-// Remove the old formatDate function - use formatRelativeTime from utils instead
-
 onMounted(async () => {
   if (projectsStore.projects.length === 0) {
     await projectsStore.fetchProjects()
   }
 })
 </script>
-
-<!-- In template, change: {{ formatDate(project.updatedAt) }} to {{ formatRelativeTime(project.updatedAt) }} -->

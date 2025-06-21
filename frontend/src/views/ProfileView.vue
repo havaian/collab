@@ -48,7 +48,7 @@
                 {{ authStore.user?.email }}
               </p>
               <p class="text-sm text-gray-500 dark:text-gray-400">
-                Member since {{ formatDate(authStore.user?.createdAt) }}
+                Member since {{ formatRelativeTime(authStore.user?.createdAt) }}
               </p>
             </div>
           </div>
@@ -223,6 +223,7 @@
 import { ref, reactive } from 'vue'
 import { ChevronRight, Camera, Eye, EyeOff } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { formatRelativeTime } from '@/utils/dateUtils'
 
 const authStore = useAuthStore()
 
@@ -232,44 +233,4 @@ const notifications = ref(true)
 const apiKeys = reactive({
   openai: ''
 })
-
-const formatDate = (date: Date | string | undefined | null) => {
-  // Handle null, undefined, or invalid dates
-  if (!date) {
-    return 'Unknown'
-  }
-  
-  // Convert string to Date object if needed
-  const dateObj = typeof date === 'string' ? new Date(date) : date
-  
-  // Check if the date is valid
-  if (isNaN(dateObj.getTime())) {
-    return 'Invalid date'
-  }
-  
-  // Use relative time formatting
-  return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
-    Math.ceil((dateObj.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-    'day'
-  )
-}
-
-// Alternative: For ProjectView.vue that uses a different format:
-const formatDateLong = (date: Date | string | undefined | null) => {
-  if (!date) {
-    return 'Unknown'
-  }
-  
-  const dateObj = typeof date === 'string' ? new Date(date) : date
-  
-  if (isNaN(dateObj.getTime())) {
-    return 'Invalid date'
-  }
-  
-  return dateObj.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-}
 </script>

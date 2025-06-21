@@ -110,7 +110,7 @@
                     Created
                   </label>
                   <p class="text-gray-600 dark:text-gray-300">
-                    {{ formatDate(project.createdAt) }}
+                    {{ formatRelativeTime(project.updatedAt) }}}
                   </p>
                 </div>
                 <div>
@@ -118,7 +118,7 @@
                     Last Updated
                   </label>
                   <p class="text-gray-600 dark:text-gray-300">
-                    {{ formatDate(project.updatedAt) }}
+                    {{ formatRelativeTime(project.updatedAt) }}
                   </p>
                 </div>
               </div>
@@ -244,20 +244,13 @@ import {
   User
 } from 'lucide-vue-next'
 import { useProjectsStore } from '@/stores/projects'
+import { formatRelativeTime } from '@/utils/dateUtils'
 
 const route = useRoute()
 const projectsStore = useProjectsStore()
 
 const id = computed(() => route.params.id as string)
 const project = computed(() => projectsStore.getProject(id.value))
-
-const formatDate = (date: Date) => {
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-}
 
 onMounted(() => {
   if (!project.value) {
