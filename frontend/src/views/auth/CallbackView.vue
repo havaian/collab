@@ -51,11 +51,10 @@ onMounted(async () => {
     }
     
     if (token && provider) {
-      // Process the OAuth callback
       console.log('OAuth callback received:', { token, provider })
       
-      // For now, simulate successful OAuth login
-      await authStore.loginWithOAuth(provider as 'github' | 'google')
+      // Handle the OAuth callback with the real token
+      await authStore.handleOAuthCallback(token as string)
       
       // Redirect to dashboard
       router.push('/dashboard')
@@ -63,9 +62,9 @@ onMounted(async () => {
       error.value = 'Missing authentication token'
       processing.value = false
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('OAuth callback error:', err)
-    error.value = 'Failed to complete authentication'
+    error.value = err.message || 'Failed to complete authentication'
     processing.value = false
   }
 })

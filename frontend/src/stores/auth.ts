@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import type { User } from '@/types'
+import { authAPI } from '@/services/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -15,7 +16,6 @@ export const useAuthStore = defineStore('auth', () => {
     [user, token],
     ([newUser, newToken]) => {
       if (newUser && newToken) {
-        console.log(newUser);
         localStorage.setItem('auth_token', newToken)
         localStorage.setItem('auth_user', JSON.stringify({
           ...newUser, 
@@ -35,102 +35,151 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     
     try {
-      // Mock authentication - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const response = await authAPI.login(credentials)
+      const data = response.data
       
-      // Mock response that matches backend structure
-      const mockResponse = {
-        user: {
-          id: '1',
-          username: 'demo-user',
-          email: credentials.email,
-          avatar: '',
-          createdAt: new Date(),
-          lastActive: new Date()
-        },
-        token: 'mock-jwt-token-' + Date.now()
+      // Transform backend response to frontend User type
+      user.value = {
+        id: data.user.id,
+        username: data.user.username,
+        email: data.user.email,
+        avatar: data.user.avatar || '',
+        displayName: data.user.displayName,
+        preferences: data.user.preferences,
+        isVerified: data.user.isVerified,
+        createdAt: new Date(),
+        lastActive: new Date()
       }
+      token.value = data.token
       
-      user.value = mockResponse.user
-      token.value = mockResponse.token
-      
-    } catch (err) {
-      error.value = 'Login failed. Please try again.'
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Login failed. Please try again.'
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  const loginWithOAuth = async (provider: 'github' | 'google') => {
+  const loginWithOAuth = (provider: 'github' | 'google') => {
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:10141'
+    window.location.href = `${API_BASE_URL}/auth/${provider}`
+  }
+
+  const handleOAuthCallback = async (token: string) => {
     loading.value = true
     error.value = null
     
     try {
-      // Mock OAuth login
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Set token temporarily to get user data
+      localStorage.setItem('auth_token', token)
       
-      const mockResponse = {
-        user: {
-          id: '1',
-          username: `${provider}-user`,
-          email: `user@${provider}.com`,
-          avatar: '',
-          createdAt: new Date(),
-          lastActive: new Date()
-        },
-        token: `mock-${provider}-token-` + Date.now()
+      const response = await authAPI.getProfile()
+      const data = response.data
+      
+      // Transform backend user data
+      user.value = {
+        id: data.user.id,
+        username: data.user.username,
+        email: data.user.email,
+        avatar: data.user.avatar || '',
+        displayName: data.user.displayName,
+        preferences: data.user.preferences,
+        usage: data.user.usage,
+        isVerified: data.user.isVerified,
+        createdAt: new Date(),
+        lastActive: new Date()
       }
+      this.token = token
       
-      user.value = mockResponse.user
-      token.value = mockResponse.token
-      
-    } catch (err) {
-      error.value = `${provider} login failed. Please try again.`
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Authentication failed'
+      localStorage.removeItem('auth_token')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  const logout = () => {
-    user.value = null
-    token.value = null
-    // localStorage cleanup happens automatically via watcher
+  const logout = async () => {
+    try {
+      if (token.value) {
+        await authAPI.logout()
+      }
+    } catch (err) {
+      console.error('Logout API call failed:', err)
+    } finally {
+      user.value = null
+      token.value = null
+    }
   }
 
-  const initializeAuth = () => {
+  const initializeAuth = async () => {
     try {
       const storedUser = localStorage.getItem('auth_user')
       const storedToken = localStorage.getItem('auth_token')
       
       if (storedUser && storedToken) {
-        const parsedUser = JSON.parse(storedUser)
-        
-        // Convert date strings back to Date objects
-        if (parsedUser.createdAt) {
-          parsedUser.createdAt = new Date(parsedUser.createdAt)
+        // Verify token is still valid by fetching user data
+        try {
+          const response = await authAPI.getProfile()
+          const data = response.data
+          
+          // Update user data from server
+          user.value = {
+            id: data.user.id,
+            username: data.user.username,
+            email: data.user.email,
+            avatar: data.user.avatar || '',
+            displayName: data.user.displayName,
+            preferences: data.user.preferences,
+            usage: data.user.usage,
+            isVerified: data.user.isVerified,
+            createdAt: new Date(),
+            lastActive: new Date()
+          }
+          token.value = storedToken
+          
+          console.log('Auth restored from server:', { user: data.user, hasToken: !!storedToken })
+        } catch (err) {
+          // Token is invalid, clear storage (axios interceptor will handle this)
+          console.log('Token validation failed, clearing storage')
         }
-        if (parsedUser.lastActive) {
-          parsedUser.lastActive = new Date(parsedUser.lastActive)
-        }
-        
-        user.value = parsedUser
-        token.value = storedToken
-        
-        console.log('Auth restored from localStorage:', { user: parsedUser, hasToken: !!storedToken })
       }
     } catch (err) {
-      console.error('Failed to restore auth from localStorage:', err)
-      // Clear corrupted data
+      console.error('Failed to restore auth:', err)
       localStorage.removeItem('auth_user')
       localStorage.removeItem('auth_token')
     }
   }
 
-  const updateUserProfile = (updates: Partial<User>) => {
-    if (user.value) {
-      user.value = { ...user.value, ...updates }
+  const updateUserProfile = async (updates: Partial<User>) => {
+    if (!token.value) {
+      throw new Error('Not authenticated')
+    }
+    
+    loading.value = true
+    error.value = null
+    
+    try {
+      const response = await authAPI.updateProfile(updates)
+      const data = response.data
+      
+      // Update user data
+      if (user.value) {
+        user.value = {
+          ...user.value,
+          ...data.user,
+          id: data.user.id,
+          createdAt: user.value.createdAt,
+          lastActive: new Date()
+        }
+      }
+      
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to update profile'
+      throw err
+    } finally {
+      loading.value = false
     }
   }
 
@@ -142,6 +191,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     login,
     loginWithOAuth,
+    handleOAuthCallback,
     logout,
     initializeAuth,
     updateUserProfile
