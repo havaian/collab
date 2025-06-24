@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiService } from '../../services/apiService';
+import apiService from '../../services/apiService';
 import { toast } from 'react-toastify';
 import {
     PlusIcon,
@@ -308,6 +308,7 @@ const ProjectDashboard = () => {
                                         formatDate={formatDate}
                                         getLanguageIcon={getLanguageIcon}
                                         isOwner={project.owner._id === user.id || project.owner === user.id}
+                                        navigate={navigate} // Fixed: passed navigate as prop
                                     />
                                 ))}
                             </div>
@@ -367,7 +368,7 @@ const ProjectDashboard = () => {
 };
 
 // Project Card Component
-const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, getLanguageIcon, isOwner }) => {
+const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, getLanguageIcon, isOwner, navigate }) => {
     const [showDropdown, setShowDropdown] = useState(false);
 
     return (
