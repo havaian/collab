@@ -1,4 +1,4 @@
-// src/contexts/AuthContext.js
+// frontend/src/contexts/AuthContext.js
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import authService from '../services/authService';
 
@@ -32,12 +32,18 @@ const authReducer = (state, action) => {
                 user: null,
                 token: null,
                 isAuthenticated: false,
-                error: null
+                error: null,
+                loading: false
             };
         case 'UPDATE_USER':
             return {
                 ...state,
                 user: { ...state.user, ...action.payload }
+            };
+        case 'SET_LOADING':
+            return {
+                ...state,
+                loading: action.payload
             };
         default:
             return state;
@@ -46,9 +52,9 @@ const authReducer = (state, action) => {
 
 const initialState = {
     user: null,
-    token: localStorage.getItem('gpt-collab-token'),
+    token: null,
     isAuthenticated: false,
-    loading: false,
+    loading: true,
     error: null
 };
 
@@ -56,48 +62,94 @@ export const AuthProvider = ({ children }) => {
     const [state, dispatch] = useReducer(authReducer, initialState);
 
     useEffect(() => {
-        // Check for token in URL (from OAuth callback)
+        // Handle OAuth callback first
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const error = urlParams.get('error');
 
         if (token) {
-            localStorage.setItem('gpt-collab-token', token);
+            // Clear URL parameters immediately to prevent loops
             window.history.replaceState({}, document.title, window.location.pathname);
-            loadUser(token);
-        } else if (error) {
-            dispatch({ type: 'LOGIN_ERROR', payload: 'Authentication failed' });
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (state.token) {
-            loadUser(state.token);
+            handleOAuthCallback(token);
+            return;
         }
+
+        if (error) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            dispatch({ type: 'LOGIN_ERROR', payload: 'Authentication failed' });
+            return;
+        }
+
+        // Check existing auth state - but DON'T reinitialize authService
+        checkExistingAuth();
     }, []);
 
-    const loadUser = async (token) => {
+    const handleOAuthCallback = async (token) => {
         try {
             dispatch({ type: 'LOGIN_START' });
-            const user = await authService.getCurrentUser(token);
+
+            // Store token using your existing service
+            localStorage.setItem('auth_token', token);
+
+            // Get user info - this will set authService.currentUser
+            const user = await authService.getCurrentUser();
+
             dispatch({
                 type: 'LOGIN_SUCCESS',
                 payload: { user, token }
             });
         } catch (error) {
-            localStorage.removeItem('gpt-collab-token');
+            console.error('OAuth callback failed:', error);
+            authService.clearAuthData();
+            dispatch({ type: 'LOGIN_ERROR', payload: error.message });
+        }
+    };
+
+    const checkExistingAuth = async () => {
+        try {
+            // Check if authService already has a user (from its own initialization)
+            if (authService.currentUser && authService.isAuthenticated()) {
+                const token = authService.getToken();
+                dispatch({
+                    type: 'LOGIN_SUCCESS',
+                    payload: { user: authService.currentUser, token }
+                });
+                return;
+            }
+
+            // If no current user but token exists, try to get user
+            const token = authService.getToken();
+            if (token) {
+                dispatch({ type: 'LOGIN_START' });
+                const user = await authService.getCurrentUser();
+                dispatch({
+                    type: 'LOGIN_SUCCESS',
+                    payload: { user, token }
+                });
+            } else {
+                dispatch({ type: 'SET_LOADING', payload: false });
+            }
+        } catch (error) {
+            console.error('Auth check failed:', error);
             dispatch({ type: 'LOGIN_ERROR', payload: error.message });
         }
     };
 
     const login = () => {
-        window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/github`;
+        authService.loginWithGitHub();
+    };
+
+    const loginWithGitHub = () => {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        authService.loginWithGitHub();
     };
 
     const logout = async () => {
         try {
-            await authService.logout(state.token);
+            await authService.logout();
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            localStorage.removeItem('gpt-collab-token');
             dispatch({ type: 'LOGOUT' });
         }
     };
@@ -106,15 +158,33 @@ export const AuthProvider = ({ children }) => {
         dispatch({ type: 'UPDATE_USER', payload: userData });
     };
 
+    // Helper function for LoginCallback component
+    const processOAuthCallback = async (token) => {
+        return await handleOAuthCallback(token);
+    };
+
+    const value = {
+        ...state,
+        login,
+        loginWithGitHub,
+        logout,
+        updateUser,
+        processOAuthCallback,
+        // Expose these for compatibility
+        isLoading: state.loading,
+        setUser: (user) => dispatch({ type: 'UPDATE_USER', payload: user }),
+        setIsAuthenticated: (auth) => {
+            if (auth) {
+                // Don't set without proper user data
+                console.warn('setIsAuthenticated called without user data');
+            } else {
+                dispatch({ type: 'LOGOUT' });
+            }
+        }
+    };
+
     return (
-        <AuthContext.Provider
-            value={{
-                ...state,
-                login,
-                logout,
-                updateUser
-            }}
-        >
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );
@@ -127,3 +197,5 @@ export const useAuth = () => {
     }
     return context;
 };
+
+export default AuthContext;

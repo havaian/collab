@@ -1,53 +1,52 @@
-import { useState, useEffect, useContext, createContext } from 'react';
+// frontend/src/hooks/useAuth.js
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Create Auth Context
 const AuthContext = createContext();
 
-// Auth Provider Component
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    const API_BASE_URL = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api`;
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+    // Check if user is already authenticated on app load
     useEffect(() => {
-        initializeAuth();
-    }, []);
+        const initializeAuth = async () => {
+            try {
+                const token = localStorage.getItem('authToken');
+                if (token) {
+                    // Validate token and get user info
+                    const response = await fetch(`${API_BASE_URL}/auth/user`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
 
-    const initializeAuth = async () => {
-        try {
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                // Validate token with backend
-                const response = await fetch(`${API_BASE_URL}/auth/validate`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
+                    if (response.ok) {
+                        const userData = await response.json();
+                        setUser(userData.user);
+                        setIsAuthenticated(true);
+                    } else {
+                        // Token is invalid, remove it
+                        localStorage.removeItem('authToken');
+                        setUser(null);
+                        setIsAuthenticated(false);
                     }
-                });
-
-                if (response.ok) {
-                    const userData = await response.json();
-                    setUser(userData.user);
-                    setIsAuthenticated(true);
-                } else {
-                    // Token is invalid, remove it
-                    localStorage.removeItem('authToken');
-                    setUser(null);
-                    setIsAuthenticated(false);
                 }
+            } catch (error) {
+                console.error('Failed to initialize auth state:', error);
+                localStorage.removeItem('authToken');
+                setUser(null);
+                setIsAuthenticated(false);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error('Auth initialization failed:', error);
-            localStorage.removeItem('authToken');
-            setUser(null);
-            setIsAuthenticated(false);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        };
+
+        initializeAuth();
+    }, [API_BASE_URL]);
 
     const login = async (credentials) => {
         try {
@@ -95,7 +94,6 @@ export const AuthProvider = ({ children }) => {
         try {
             const token = localStorage.getItem('authToken');
 
-            // Notify backend of logout
             if (token) {
                 await fetch(`${API_BASE_URL}/auth/logout`, {
                     method: 'POST',
@@ -109,44 +107,20 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('authToken');
             setUser(null);
             setIsAuthenticated(false);
-
             return { success: true };
         } catch (error) {
             console.error('Logout failed:', error);
-            // Force logout even if backend call fails
+            // Even if logout fails on server, clear local state
             localStorage.removeItem('authToken');
             setUser(null);
             setIsAuthenticated(false);
-
             return { success: false, error: error.message };
         }
     };
 
     const updateUser = (userData) => {
-        setUser(prev => ({ ...prev, ...userData }));
+        setUser(userData);
     };
-
-    // Handle OAuth callback
-    useEffect(() => {
-        const handleOAuthCallback = () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-            const error = urlParams.get('error');
-
-            if (token) {
-                localStorage.setItem('authToken', token);
-                // Clean up URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-                // Reinitialize auth to fetch user data
-                initializeAuth();
-            } else if (error) {
-                console.error('OAuth error:', error);
-                setIsLoading(false);
-            }
-        };
-
-        handleOAuthCallback();
-    }, []);
 
     const value = {
         user,
@@ -155,7 +129,9 @@ export const AuthProvider = ({ children }) => {
         login,
         loginWithGitHub,
         logout,
-        updateUser
+        updateUser,
+        setUser,
+        setIsAuthenticated
     };
 
     return (

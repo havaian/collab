@@ -1,20 +1,20 @@
-// src/auth/controller.js
+// backend/src/auth/controller.js
 const authService = require('./service');
 
 class AuthController {
     async githubCallback(req, res) {
         try {
             if (!req.user) {
-                return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}?error=auth_failed`);
+                return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?error=auth_failed`);
             }
 
             const token = authService.generateJWT(req.user);
 
-            // Redirect to frontend with token
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}?token=${token}`);
+            // Redirect to frontend callback route with token - NOT to root
+            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?token=${token}`);
         } catch (error) {
             console.error('GitHub callback error:', error);
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}?error=auth_failed`);
+            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?error=auth_failed`);
         }
     }
 
@@ -36,6 +36,7 @@ class AuthController {
                 }
             });
         } catch (error) {
+            console.error('Get current user error:', error);
             res.status(500).json({ error: 'Failed to fetch user data' });
         }
     }
@@ -47,6 +48,7 @@ class AuthController {
 
             res.json({ user });
         } catch (error) {
+            console.error('Update settings error:', error);
             res.status(400).json({ error: 'Failed to update settings' });
         }
     }
@@ -55,10 +57,12 @@ class AuthController {
         try {
             req.logout((err) => {
                 if (err) {
+                    console.error('Logout error:', err);
                     return res.status(500).json({ error: 'Logout failed' });
                 }
                 req.session.destroy((err) => {
                     if (err) {
+                        console.error('Session destruction error:', err);
                         return res.status(500).json({ error: 'Session destruction failed' });
                     }
                     res.clearCookie('connect.sid');
@@ -66,6 +70,7 @@ class AuthController {
                 });
             });
         } catch (error) {
+            console.error('Logout error:', error);
             res.status(500).json({ error: 'Logout failed' });
         }
     }

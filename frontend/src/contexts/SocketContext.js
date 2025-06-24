@@ -1,4 +1,4 @@
-// src/contexts/SocketContext.js
+// frontend/src/contexts/SocketContext.js
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
@@ -8,7 +8,7 @@ const SocketContext = createContext();
 export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
     const [connected, setConnected] = useState(false);
-    const { token, isAuthenticated } = useAuth();
+    const { isAuthenticated, token } = useAuth();
 
     useEffect(() => {
         if (isAuthenticated && token) {

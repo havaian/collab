@@ -19,7 +19,7 @@ class SocketHandlers {
   }
   
   handleConnection(socket) {
-    console.log(`🔌 Socket connected: ${socket.id} (User: ${socket.user.username})`);
+    console.log(`🔌 Socket connected: ${socket.id} (User: ${socket.user})`);
     
     // Authentication events
     this.setupAuthEvents(socket);
