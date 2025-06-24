@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
     CodeBracketIcon,
-    UserIcon,
     ArrowRightOnRectangleIcon,
     ArrowLeftIcon
 } from '@heroicons/react/24/outline';
@@ -82,37 +81,30 @@ const Header = ({
                             </div>
                         ))}
 
-                        {/* Profile Button */}
+                        {/* Enhanced Profile Button with Avatar and Username */}
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => navigate('/profile')}
                             title="Profile"
-                            className="flex items-center space-x-1 text-gray-500 hover:text-gray-700"
+                            avatar={user?.avatar || '/default-avatar.png'}
+                            avatarAlt={user?.username || 'User'}
+                            avatarSize="sm"
+                            className="flex items-center space-x-2"
                         >
-                            <UserIcon className="h-5 w-5" />
-                            <span className="hidden md:inline">Profile</span>
-                        </Button>
-
-                        {/* User Info */}
-                        <div className="flex items-center space-x-3">
-                            <img
-                                className="h-8 w-8 rounded-full border-2 border-gray-200"
-                                src={user?.avatar || '/default-avatar.png'}
-                                alt={user?.username}
-                            />
-                            <div className="hidden md:block">
-                                <p className="text-sm font-medium text-gray-900">{user?.username}</p>
-                                <p className="text-xs text-gray-500">{user?.email}</p>
+                            <div className="flex flex-col items-start">
+                                <span className="text-sm font-medium text-gray-900">
+                                    {user?.username || 'User'}
+                                </span>
                             </div>
-                        </div>
+                        </Button>
 
                         {/* Logout Button */}
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={handleLogout}
-                            className="flex items-center space-x-1 text-gray-500 hover:text-gray-700"
+                            className="flex items-center space-x-1"
                             title="Logout"
                         >
                             <ArrowRightOnRectangleIcon className="h-5 w-5" />

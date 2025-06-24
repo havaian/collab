@@ -418,7 +418,7 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                     <div className="flex items-center space-x-4">
                         <span className="flex items-center">
                             <CalendarIcon className="h-3 w-3 mr-1" />
-                            {formatDate(project.updatedAt)}
+                            {formatDate(project.createdAt)}
                         </span>
                         <span>{project.settings?.language || 'No language'}</span>
                     </div>
@@ -463,9 +463,9 @@ const PublicProjectCard = ({ project, onProjectClick, formatDate, getLanguageIco
                     <div className="flex items-center space-x-2">
                         <span>{project.settings?.language}</span>
                         <span>•</span>
-                        <span>{formatDate(project.updatedAt)}</span>
+                        <span>{formatDate(project.createdAt)}</span>
                     </div>
-                </div>ф
+                </div>
             </div>
         </div>
     );
