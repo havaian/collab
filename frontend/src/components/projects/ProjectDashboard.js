@@ -1,5 +1,5 @@
 // frontend/src/components/projects/ProjectDashboard.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
@@ -13,7 +13,14 @@ import {
     LockClosedIcon,
     CalendarIcon,
     MagnifyingGlassIcon,
-    Cog6ToothIcon
+    Cog6ToothIcon,
+    BellIcon,
+    ExclamationTriangleIcon,
+    CodeBracketSquareIcon,
+    EnvelopeIcon,
+    UserIcon,
+    XMarkIcon,
+    UsersIcon
 } from '@heroicons/react/24/outline';
 
 const ProjectDashboard = () => {
@@ -31,8 +38,11 @@ const ProjectDashboard = () => {
         isPublic: false,
         language: 'javascript'
     });
+
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [pendingInvites, setPendingInvites] = useState([]);
+    const [inviteCount, setInviteCount] = useState(0);
 
     useEffect(() => {
         loadProjects();
@@ -40,6 +50,20 @@ const ProjectDashboard = () => {
             loadPublicProjects();
         }
     }, [activeTab, searchTerm, sortBy]);
+
+    useEffect(() => {
+        loadPendingInvites();
+    }, []);
+
+    const loadPendingInvites = async () => {
+        try {
+            const response = await apiService.getPendingInvites();
+            setPendingInvites(response.invites);
+            setInviteCount(response.invites.length);
+        } catch (error) {
+            console.error('Failed to load pending invites:', error);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -126,6 +150,50 @@ const ProjectDashboard = () => {
         project.description?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Add this component for Invitation Notifications
+    const InvitationNotifications = () => {
+        if (inviteCount === 0) return null;
+
+        return (
+            <div className="mb-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                        <BellIcon className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <div className="flex-1">
+                            <h3 className="font-medium text-blue-900">
+                                You have {inviteCount} pending invitation{inviteCount > 1 ? 's' : ''}
+                            </h3>
+                            <p className="text-sm text-blue-700 mt-1">
+                                {pendingInvites.slice(0, 2).map(invite => invite.project.name).join(', ')}
+                                {inviteCount > 2 && ` and ${inviteCount - 2} more`}
+                            </p>
+                            <div className="mt-3 flex space-x-3">
+                                <button
+                                    onClick={() => navigate('/invites')}
+                                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                >
+                                    View All Invites
+                                </button>
+                                <button
+                                    onClick={loadPendingInvites}
+                                    className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors"
+                                >
+                                    Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setInviteCount(0)}
+                            className="text-blue-400 hover:text-blue-600 transition-colors"
+                        >
+                            <XMarkIcon className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -138,7 +206,23 @@ const ProjectDashboard = () => {
     }
 
     // Header actions - empty for dashboard since we moved buttons to main content
-    const headerActions = [];
+    const headerActions = [
+        // Notification Bell with Badge
+        <Button
+            key="notifications"
+            variant="ghost"
+            onClick={() => navigate('/invites')}
+            className="relative p-2"
+            title={`${inviteCount} pending invitations`}
+        >
+            <BellIcon className="h-5 w-5" />
+            {inviteCount > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                    {inviteCount > 9 ? '9+' : inviteCount}
+                </span>
+            )}
+        </Button>
+    ];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -228,6 +312,9 @@ const ProjectDashboard = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* Invitation Notifications */}
+                    <InvitationNotifications />
 
                     {/* Content */}
                     {activeTab === 'my-projects' ? (
@@ -336,102 +423,320 @@ const ProjectDashboard = () => {
 };
 
 // Project Card Component
-const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, getLanguageIcon, isOwner, navigate }) => {
-    const [showDropdown, setShowDropdown] = useState(false);
+const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, getLanguageIcon, navigate = { navigate } }) => {
+    const [showMenu, setShowMenu] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const menuRef = useRef(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setShowMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleInviteCollaborator = async (email) => {
+        try {
+            await apiService.inviteCollaborator(project._id, { email });
+            toast.success(`Invitation sent to ${email}`);
+            setShowInviteModal(false);
+        } catch (error) {
+            toast.error('Failed to send invitation');
+        }
+    };
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow relative">
+        <div className="bg-white rounded-lg border-2 border-gray-900 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:border-black transition-all duration-200 cursor-pointer">
             <div className="p-6">
+                {/* Header with title and menu */}
                 <div className="flex items-start justify-between mb-3">
                     <div
-                        className="flex-1 cursor-pointer"
+                        className="flex items-center space-x-2 flex-1"
                         onClick={() => onProjectClick(project._id)}
                     >
-                        <div className="flex items-center space-x-2 mb-2">
-                            <span className="text-lg">{getLanguageIcon(project.settings?.language)}</span>
-                            <h3 className="text-lg font-semibold text-gray-900 truncate">
-                                {project.name}
-                            </h3>
-                            <div className="flex items-center space-x-1">
-                                {project.isPublic ? (
-                                    <GlobeAltIcon className="h-4 w-4 text-green-500" title="Public" />
-                                ) : (
-                                    <LockClosedIcon className="h-4 w-4 text-gray-400" title="Private" />
-                                )}
-                                {project.githubRepo?.isConnected && (
-                                    <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
-                                    </svg>
-                                )}
-                            </div>
-                        </div>
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                            {project.description || 'No description provided'}
-                        </p>
-                    </div>
+                        <span className="text-lg">{getLanguageIcon(project.settings?.language)}</span>
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">
+                            {project.name}
+                        </h3>
 
-                    {isOwner && (
-                        <div className="relative">
-                            <Button
-                                variant="ghost"
-                                size="xs"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowDropdown(!showDropdown);
-                                }}
-                                className="p-1 text-gray-400 hover:text-gray-600"
-                            >
-                                <Cog6ToothIcon className="h-5 w-5" />
-                            </Button>
+                        {/* Status badges */}
+                        <div className="flex items-center space-x-1">
+                            {project.isPublic ? (
+                                <GlobeAltIcon className="h-4 w-4 text-green-500" title="Public" />
+                            ) : (
+                                <LockClosedIcon className="h-4 w-4 text-gray-400" title="Private" />
+                            )}
 
-                            {showDropdown && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                                    <div className="py-1">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate(`/project/${project._id}/settings`);
-                                                setShowDropdown(false);
-                                            }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                        >
-                                            Settings
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onDeleteProject(project._id, project.name);
-                                                setShowDropdown(false);
-                                            }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                        >
-                                            Delete Project
-                                        </button>
-                                    </div>
+                            {/* GitHub Integration Badge */}
+                            {project.repository && (
+                                <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    <CodeBracketSquareIcon className="h-3 w-3 mr-1" />
+                                    GitHub
+                                </div>
+                            )}
+
+                            {/* Collaboration Status */}
+                            {project.collaborators && project.collaborators.length > 0 && (
+                                <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <UsersIcon className="h-3 w-3 mr-1" />
+                                    {project.collaborators.length}
                                 </div>
                             )}
                         </div>
-                    )}
+                    </div>
+
+                    {/* Project Menu */}
+                    <div className="relative" ref={menuRef}>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowMenu(!showMenu);
+                            }}
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                            </svg>
+                        </button>
+
+                        {showMenu && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onProjectClick(project._id);
+                                        setShowMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                >
+                                    <FolderIcon className="h-4 w-4 text-gray-400" />
+                                    <span>Open Project</span>
+                                </button>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowInviteModal(true);
+                                        setShowMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                >
+                                    <EnvelopeIcon className="h-4 w-4 text-gray-400" />
+                                    <span>Invite Collaborator</span>
+                                </button>
+
+                                {project.repository && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate('/github');
+                                            setShowMenu(false);
+                                        }}
+                                        className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                    >
+                                        <CodeBracketSquareIcon className="h-4 w-4 text-gray-400" />
+                                        <span>GitHub Settings</span>
+                                    </button>
+                                )}
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Open project settings
+                                        setShowMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                >
+                                    <Cog6ToothIcon className="h-4 w-4 text-gray-400" />
+                                    <span>Project Settings</span>
+                                </button>
+
+                                <div className="border-t border-gray-100 my-1"></div>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteProject(project._id, project.name);
+                                        setShowMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm text-red-600"
+                                >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    <span>Delete Project</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center space-x-4">
-                        <span className="flex items-center">
-                            <CalendarIcon className="h-3 w-3 mr-1" />
-                            {formatDate(project.createdAt)}
-                        </span>
-                        <span>{project.settings?.language || 'No language'}</span>
+                {/* Description */}
+                <p
+                    className="text-gray-600 text-sm mb-4 line-clamp-2 cursor-pointer"
+                    onClick={() => onProjectClick(project._id)}
+                >
+                    {project.description || 'No description provided'}
+                </p>
+
+                {/* Collaborators Preview */}
+                {project.collaborators && project.collaborators.length > 0 && (
+                    <div className="mb-4">
+                        <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-500">Collaborators:</span>
+                            <div className="flex -space-x-1">
+                                {project.collaborators.slice(0, 3).map((collaborator, i) => (
+                                    <img
+                                        key={i}
+                                        src={collaborator.avatar || '/default-avatar.png'}
+                                        alt={collaborator.username}
+                                        className="h-6 w-6 rounded-full border-2 border-white"
+                                        title={collaborator.username}
+                                    />
+                                ))}
+                                {project.collaborators.length > 3 && (
+                                    <div className="h-6 w-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                                        <span className="text-xs font-medium text-gray-600">
+                                            +{project.collaborators.length - 3}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
+                )}
+
+                {/* Footer */}
+                <div className="flex items-center justify-between text-xs text-gray-500">
                     <div className="flex items-center space-x-2">
-                        {project.collaborators && project.collaborators.length > 0 && (
-                            <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                {project.collaborators.length} collaborator{project.collaborators.length !== 1 ? 's' : ''}
+                        <CalendarIcon className="h-3 w-3" />
+                        <span>Created {formatDate(project.updatedAt)}</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                        {project.stats?.collaboratorCount > 0 && (
+                            <span className="flex items-center space-x-1">
+                                <UsersIcon className="h-3 w-3" />
+                                <span>
+                                    {project.stats.collaboratorCount} collaborator{project.stats.collaboratorCount !== 1 ? 's' : ''}
+                                </span>
                             </span>
                         )}
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                             {project.stats?.fileCount || 0} files
                         </span>
                     </div>
+                </div>
+            </div>
+
+            {/* Invite Modal */}
+            {showInviteModal && (
+                <InviteCollaboratorModal
+                    projectName={project.name}
+                    onInvite={handleInviteCollaborator}
+                    onClose={() => setShowInviteModal(false)}
+                />
+            )}
+        </div>
+    );
+};
+
+// Invite Collaborator Modal Component
+const InviteCollaboratorModal = ({ projectName, onInvite, onClose }) => {
+    const [email, setEmail] = useState('');
+    const [role, setRole] = useState('collaborator');
+    const [message, setMessage] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!email.trim()) return;
+
+        onInvite(email.trim(), { role, message: message.trim() });
+        setEmail('');
+        setMessage('');
+    };
+
+    return (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">
+                            Invite Collaborator
+                        </h3>
+                        <button
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <XMarkIcon className="h-6 w-6" />
+                        </button>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mb-4">
+                        Invite someone to collaborate on <strong>{projectName}</strong>
+                    </p>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Email Address
+                            </label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="collaborator@example.com"
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Role
+                            </label>
+                            <select
+                                value={role}
+                                onChange={(e) => setRole(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="viewer">Viewer (Read-only)</option>
+                                <option value="collaborator">Collaborator (Read & Write)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Personal Message (Optional)
+                            </label>
+                            <textarea
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                placeholder="Add a personal message to your invitation..."
+                                rows={3}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                            />
+                        </div>
+
+                        <div className="flex justify-end space-x-3 pt-4">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={onClose}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="ghost"
+                            >
+                                Send Invitation
+                            </Button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -442,7 +747,7 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
 const PublicProjectCard = ({ project, onProjectClick, formatDate, getLanguageIcon }) => {
     return (
         <div
-            className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+            className="bg-white rounded-lg border-2 border-gray-900 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:border-black transition-all duration-200 cursor-pointer"
             onClick={onProjectClick}
         >
             <div className="p-6">

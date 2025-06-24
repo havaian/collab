@@ -20,14 +20,20 @@ import {
     Cog6ToothIcon,
     UsersIcon,
     CloudArrowUpIcon,
-    ShareIcon
+    ShareIcon,
+    GlobeAltIcon,
+    CodeBracketSquareIcon,
+    ChevronDownIcon,
+    UserIcon,
+    EnvelopeIcon,
+    ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 
 const CollaborativeEditor = ({ readOnly = false }) => {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const { socket, connected } = useSocket();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
 
     // Project and file state
     const [project, setProject] = useState(null);
@@ -55,6 +61,10 @@ const CollaborativeEditor = ({ readOnly = false }) => {
     const [sidebarWidth, setSidebarWidth] = useState(300);
     const [outputHeight, setOutputHeight] = useState(300);
 
+    const [showUserMenu, setShowUserMenu] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
+    const userMenuRef = useRef(null);
+
     // Refs
     const editorRef = useRef(null);
     const saveTimeoutRef = useRef(null);
@@ -62,6 +72,17 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
     // Auto-save delay
     const AUTO_SAVE_DELAY = 2000; // 2 seconds
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+                setShowUserMenu(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         loadProject();
@@ -103,6 +124,11 @@ const CollaborativeEditor = ({ readOnly = false }) => {
             }, AUTO_SAVE_DELAY);
         }
     }, [code, activeFile]);
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login');
+    };
 
     const loadProject = async () => {
         try {
@@ -484,105 +510,176 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                     <div className="flex items-center space-x-3">
                         <h1 className="text-xl font-semibold text-gray-900">{project.name}</h1>
                         {project.isPublic && (
-                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <GlobeAltIcon className="h-3 w-3 mr-1" />
                                 Public
                             </span>
                         )}
-                        {readOnly && (
-                            <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
-                                Read Only
+                        {project.repository && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                <CodeBracketSquareIcon className="h-3 w-3 mr-1" />
+                                GitHub
                             </span>
                         )}
                     </div>
-
-                    {/* Active Users */}
-                    <div className="hidden md:flex items-center space-x-2">
-                        <UsersIcon className="h-4 w-4 text-gray-500" />
-                        <div className="flex -space-x-1">
-                            {activeUsers.slice(0, 5).map((activeUser) => (
-                                <img
-                                    key={activeUser.id}
-                                    className="h-6 w-6 rounded-full border-2 border-white"
-                                    src={activeUser.avatar || '/default-avatar.png'}
-                                    alt={activeUser.username}
-                                    title={activeUser.username}
-                                />
-                            ))}
-                            {activeUsers.length > 5 && (
-                                <div className="h-6 w-6 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs text-gray-600">
-                                    +{activeUsers.length - 5}
-                                </div>
-                            )}
-                        </div>
-                    </div>
                 </div>
 
+                {/* Center - Connection Status & Active Users */}
+                <div className="flex items-center space-x-4">
+                    {/* Connection Status */}
+                    <div className="flex items-center space-x-2">
+                        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className="text-sm text-gray-600">
+                            {connected ? 'Connected' : 'Disconnected'}
+                        </span>
+                    </div>
+
+                    {/* Active Users */}
+                    {activeUsers.length > 0 && (
+                        <div className="flex items-center space-x-2">
+                            <UsersIcon className="h-4 w-4 text-gray-500" />
+                            <div className="flex -space-x-1">
+                                {activeUsers.slice(0, 3).map((user, i) => (
+                                    <img
+                                        key={user.id}
+                                        src={user.avatar || '/default-avatar.png'}
+                                        alt={user.username}
+                                        className="h-6 w-6 rounded-full border-2 border-white"
+                                        title={user.username}
+                                    />
+                                ))}
+                                {activeUsers.length > 3 && (
+                                    <div className="h-6 w-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                                        <span className="text-xs font-medium text-gray-600">
+                                            +{activeUsers.length - 3}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right - Action Buttons & User Menu */}
                 <div className="flex items-center space-x-3">
-                    {/* Action Buttons */}
-                    <div className="hidden md:flex items-center space-x-2">
+                    {/* Quick Actions */}
+                    <div className="flex items-center space-x-2">
+                        {/* Run Code */}
                         <button
-                            onClick={() => setShowFileTree(!showFileTree)}
-                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Toggle File Tree"
+                            onClick={handleExecuteCode}
+                            disabled={processing || !code.trim()}
+                            className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
+                            <PlayIcon className="h-4 w-4" />
+                            <span className="hidden md:inline">
+                                {processing ? 'Running...' : 'Run'}
+                            </span>
                         </button>
 
+                        {/* Share Project */}
+                        {!readOnly && (
+                            <button
+                                onClick={() => setShowShareModal(true)}
+                                className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                            >
+                                <ShareIcon className="h-4 w-4" />
+                                <span className="hidden md:inline">Share</span>
+                            </button>
+                        )}
+
+                        {/* GitHub Sync */}
+                        {!readOnly && project.repository && (
+                            <button
+                                onClick={() => navigate('/github')}
+                                className="flex items-center space-x-1 px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
+                                title="GitHub Sync"
+                            >
+                                <CloudArrowUpIcon className="h-4 w-4" />
+                                <span className="hidden md:inline">Sync</span>
+                            </button>
+                        )}
+
+                        {/* Settings */}
+                        {!readOnly && (
+                            <button
+                                onClick={() => setShowSettings(!showSettings)}
+                                className={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                                title="Project Settings"
+                            >
+                                <Cog6ToothIcon className="h-4 w-4" />
+                            </button>
+                        )}
+
+                        {/* Chat Toggle */}
                         <button
-                            onClick={() => setShowOutput(!showOutput)}
-                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Toggle Output Panel"
+                            onClick={() => setShowChat(!showChat)}
+                            className={`p-2 rounded-md transition-colors ${showChat ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                            title="Toggle Chat"
                         >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
-                            </svg>
+                            <ChatBubbleLeftIcon className="h-4 w-4" />
                         </button>
                     </div>
 
-                    <button
-                        onClick={() => setShowChat(!showChat)}
-                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${showChat
-                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                    >
-                        <ChatBubbleLeftIcon className="h-4 w-4" />
-                        <span className="hidden md:inline">Chat</span>
-                    </button>
+                    {/* User Menu (Simplified for Editor) */}
+                    <div className="relative" ref={userMenuRef}>
+                        <button
+                            onClick={() => setShowUserMenu(!showUserMenu)}
+                            className="flex items-center space-x-2 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                        >
+                            <img
+                                src={user?.avatar || '/default-avatar.png'}
+                                alt={user?.username || 'User'}
+                                className="h-6 w-6 rounded-full object-cover"
+                            />
+                            <ChevronDownIcon className={`h-3 w-3 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                        </button>
 
-                    {!readOnly && (
-                        <>
-                            <button
-                                onClick={handleManualSave}
-                                disabled={!activeFile}
-                                className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-                            >
-                                <CloudArrowUpIcon className="h-4 w-4" />
-                                <span className="hidden md:inline">Save</span>
-                            </button>
-
-                            <button
-                                onClick={handleExecuteCode}
-                                disabled={!code || processing}
-                                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-                            >
-                                <PlayIcon className="h-4 w-4" />
-                                <span className="hidden md:inline">
-                                    {processing ? 'Running...' : 'Run'}
-                                </span>
-                            </button>
-                        </>
-                    )}
-
-                    <button
-                        onClick={() => setShowSettings(!showSettings)}
-                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                        title="Project Settings"
-                    >
-                        <Cog6ToothIcon className="h-4 w-4" />
-                    </button>
+                        {showUserMenu && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                                <button
+                                    onClick={() => {
+                                        navigate('/profile');
+                                        setShowUserMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                >
+                                    <UserIcon className="h-4 w-4 text-gray-400" />
+                                    <span>Profile</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        navigate('/settings');
+                                        setShowUserMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                >
+                                    <Cog6ToothIcon className="h-4 w-4 text-gray-400" />
+                                    <span>Settings</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        navigate('/invites');
+                                        setShowUserMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                >
+                                    <EnvelopeIcon className="h-4 w-4 text-gray-400" />
+                                    <span>Invites</span>
+                                </button>
+                                <div className="border-t border-gray-100 my-1"></div>
+                                <button
+                                    onClick={() => {
+                                        handleLogout();
+                                        setShowUserMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm text-red-600"
+                                >
+                                    <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                                    <span>Sign out</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
 
