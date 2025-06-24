@@ -5,7 +5,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginCallback from './components/auth/LoginCallback';
-import Landing from './components/Landing';
+import Login from './components/auth/LoginPage';
+import Editor from './components/Editor';
 import ProjectDashboard from './components/projects/ProjectDashboard';
 import CollaborativeEditor from './components/editor/CollaborativeEditor';
 import { ToastContainer } from 'react-toastify';
@@ -39,10 +40,10 @@ function App() {
                 element={<LoginCallback />}
               />
 
-              {/* Landing/Login Page */}
+              {/* Login Page */}
               <Route
                 path="/login"
-                element={<Landing />}
+                element={<Login />}
               />
 
               {/* Dashboard Route - Shows all projects (Protected) */}
@@ -60,7 +61,7 @@ function App() {
                 path="/editor"
                 element={
                   <ProtectedRoute>
-                    <Landing />
+                    <Editor />
                   </ProtectedRoute>
                 }
               />

@@ -1,20 +1,19 @@
-// src/components/projects/ProjectDashboard.js
+// frontend/src/components/projects/ProjectDashboard.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
 import { toast } from 'react-toastify';
+import Header from '../shared/Header';
+import Button from '../shared/Button';
 import {
     PlusIcon,
     FolderIcon,
     GlobeAltIcon,
     LockClosedIcon,
     CalendarIcon,
-    CodeBracketIcon,
     MagnifyingGlassIcon,
-    Cog6ToothIcon,
-    UserIcon,
-    ArrowRightOnRectangleIcon
+    Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 
 const ProjectDashboard = () => {
@@ -32,7 +31,7 @@ const ProjectDashboard = () => {
         isPublic: false,
         language: 'javascript'
     });
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -129,7 +128,7 @@ const ProjectDashboard = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
                 <div className="flex flex-col items-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
                     <p className="text-gray-600">Loading your projects...</p>
@@ -138,210 +137,179 @@ const ProjectDashboard = () => {
         );
     }
 
+    // Header actions - empty for dashboard since we moved buttons to main content
+    const headerActions = [];
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <header className="bg-white shadow-sm border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-4">
-                        <div className="flex items-center space-x-4">
-                            <div className="flex items-center">
-                                <CodeBracketIcon className="h-8 w-8 text-blue-600 mr-2" />
-                                <h1 className="text-2xl font-bold text-gray-900">GPT-Collab</h1>
-                            </div>
-                            <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
-                                <span>•</span>
-                                <span>Collaborative coding with AI</span>
-                            </div>
-                        </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+            <Header
+                title="Dashboard"
+                subtitle="Collaborative coding with AI"
+                actions={headerActions}
+            />
 
-                        <div className="flex items-center space-x-4">
+            {/* Main Content - 85% height */}
+            <main className="h-[85vh] overflow-y-auto">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    {/* Navigation Tabs */}
+                    <div className="border-b border-gray-200 mb-6">
+                        <nav className="-mb-px flex space-x-8">
                             <button
-                                onClick={() => navigate('/profile')}
-                                className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
+                                onClick={() => setActiveTab('my-projects')}
+                                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'my-projects'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
                             >
-                                <UserIcon className="h-5 w-5" />
-                                <span className="hidden md:inline">Profile</span>
+                                My Projects ({projects.length})
                             </button>
-
-                            <div className="flex items-center space-x-3">
-                                <img
-                                    className="h-8 w-8 rounded-full border-2 border-gray-200"
-                                    src={user?.avatar || '/default-avatar.png'}
-                                    alt={user?.username}
-                                />
-                                <div className="hidden md:block">
-                                    <p className="text-sm font-medium text-gray-900">{user?.username}</p>
-                                    <p className="text-xs text-gray-500">{user?.email}</p>
-                                </div>
-                            </div>
-
                             <button
-                                onClick={logout}
-                                className="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors"
-                                title="Logout"
+                                onClick={() => setActiveTab('explore')}
+                                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'explore'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
                             >
-                                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                                <GlobeAltIcon className="h-4 w-4 inline mr-1" />
+                                Explore Public
                             </button>
-                        </div>
+                        </nav>
                     </div>
-                </div>
-            </header>
 
-            <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                {/* Navigation Tabs */}
-                <div className="border-b border-gray-200 mb-6">
-                    <nav className="-mb-px flex space-x-8">
-                        <button
-                            onClick={() => setActiveTab('my-projects')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'my-projects'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                        >
-                            My Projects ({projects.length})
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('explore')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'explore'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                        >
-                            <GlobeAltIcon className="h-4 w-4 inline mr-1" />
-                            Explore Public
-                        </button>
-                    </nav>
-                </div>
+                    {/* Search and Actions */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
+                        <div className="flex items-center space-x-4 w-full md:flex-1">
+                            <div className="relative flex-1 md:max-w-md">
+                                <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search projects..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                                />
+                            </div>
 
-                {/* Search and Actions */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
-                    <div className="flex items-center space-x-4 w-full md:w-auto">
-                        <div className="relative flex-1 md:w-80">
-                            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search projects..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
+                            {activeTab === 'my-projects' && (
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                >
+                                    <option value="updatedAt">Recently Updated</option>
+                                    <option value="createdAt">Recently Created</option>
+                                    <option value="name">Name A-Z</option>
+                                </select>
+                            )}
                         </div>
 
+                        {/* Action Buttons - Only show for my-projects tab */}
                         {activeTab === 'my-projects' && (
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value)}
-                                className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="updatedAt">Recently Updated</option>
-                                <option value="createdAt">Recently Created</option>
-                                <option value="name">Name A-Z</option>
-                            </select>
+                            <div className="flex space-x-3 w-full md:w-auto">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setShowImportModal(true)}
+                                    className="flex items-center space-x-2 flex-1 md:flex-initial"
+                                >
+                                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>Import from GitHub</span>
+                                </Button>
+
+                                <Button
+                                    variant="primary"
+                                    onClick={() => setShowCreateModal(true)}
+                                    className="flex items-center space-x-2 flex-1 md:flex-initial"
+                                >
+                                    <PlusIcon className="h-4 w-4" />
+                                    <span>New Project</span>
+                                </Button>
+                            </div>
                         )}
                     </div>
 
-                    {activeTab === 'my-projects' && (
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={() => setShowImportModal(true)}
-                                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                                <span>Import from GitHub</span>
-                            </button>
-
-                            <button
-                                onClick={() => setShowCreateModal(true)}
-                                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                                <PlusIcon className="h-4 w-4" />
-                                <span>New Project</span>
-                            </button>
+                    {/* Content */}
+                    {activeTab === 'my-projects' ? (
+                        <div>
+                            {filteredProjects.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <FolderIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                        {searchTerm ? 'No projects found' : 'No projects yet'}
+                                    </h3>
+                                    <p className="text-gray-500 mb-6">
+                                        {searchTerm
+                                            ? 'Try adjusting your search terms or create a new project.'
+                                            : 'Create your first collaborative project to get started.'
+                                        }
+                                    </p>
+                                    {!searchTerm && (
+                                        <div className="space-x-3">
+                                            <Button
+                                                variant="primary"
+                                                onClick={() => setShowCreateModal(true)}
+                                                className="inline-flex items-center"
+                                            >
+                                                <PlusIcon className="h-4 w-4 mr-2" />
+                                                Create Project
+                                            </Button>
+                                            <Button
+                                                variant="secondary"
+                                                onClick={() => setShowImportModal(true)}
+                                                className="inline-flex items-center"
+                                            >
+                                                Import from GitHub
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {filteredProjects.map((project) => (
+                                        <ProjectCard
+                                            key={project._id}
+                                            project={project}
+                                            onProjectClick={handleProjectClick}
+                                            onDeleteProject={handleDeleteProject}
+                                            formatDate={formatDate}
+                                            getLanguageIcon={getLanguageIcon}
+                                            isOwner={project.owner._id === user.id || project.owner === user.id}
+                                            navigate={navigate}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div>
+                            {publicProjects.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <GlobeAltIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                        No public projects found
+                                    </h3>
+                                    <p className="text-gray-500">
+                                        {searchTerm ? 'Try adjusting your search terms.' : 'Be the first to make a project public!'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {publicProjects.map((project) => (
+                                        <PublicProjectCard
+                                            key={project._id}
+                                            project={project}
+                                            onProjectClick={() => navigate(`/public/${project._id}`)}
+                                            formatDate={formatDate}
+                                            getLanguageIcon={getLanguageIcon}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
-
-                {/* Content */}
-                {activeTab === 'my-projects' ? (
-                    <div>
-                        {filteredProjects.length === 0 ? (
-                            <div className="text-center py-12">
-                                <FolderIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                    {searchTerm ? 'No projects found' : 'No projects yet'}
-                                </h3>
-                                <p className="text-gray-500 mb-6">
-                                    {searchTerm
-                                        ? 'Try adjusting your search terms or create a new project.'
-                                        : 'Create your first collaborative project to get started.'
-                                    }
-                                </p>
-                                {!searchTerm && (
-                                    <div className="space-x-3">
-                                        <button
-                                            onClick={() => setShowCreateModal(true)}
-                                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                        >
-                                            <PlusIcon className="h-4 w-4 mr-2" />
-                                            Create Project
-                                        </button>
-                                        <button
-                                            onClick={() => setShowImportModal(true)}
-                                            className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                                        >
-                                            Import from GitHub
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {filteredProjects.map((project) => (
-                                    <ProjectCard
-                                        key={project._id}
-                                        project={project}
-                                        onProjectClick={handleProjectClick}
-                                        onDeleteProject={handleDeleteProject}
-                                        formatDate={formatDate}
-                                        getLanguageIcon={getLanguageIcon}
-                                        isOwner={project.owner._id === user.id || project.owner === user.id}
-                                        navigate={navigate} // Fixed: passed navigate as prop
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div>
-                        {publicProjects.length === 0 ? (
-                            <div className="text-center py-12">
-                                <GlobeAltIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                    No public projects found
-                                </h3>
-                                <p className="text-gray-500">
-                                    {searchTerm ? 'Try adjusting your search terms.' : 'Be the first to make a project public!'}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {publicProjects.map((project) => (
-                                    <PublicProjectCard
-                                        key={project._id}
-                                        project={project}
-                                        onProjectClick={() => navigate(`/public/${project._id}`)}
-                                        formatDate={formatDate}
-                                        getLanguageIcon={getLanguageIcon}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+            </main>
 
             {/* Create Project Modal */}
             {showCreateModal && (
@@ -404,15 +372,17 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
 
                     {isOwner && (
                         <div className="relative">
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="xs"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setShowDropdown(!showDropdown);
                                 }}
-                                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                className="p-1 text-gray-400 hover:text-gray-600"
                             >
                                 <Cog6ToothIcon className="h-5 w-5" />
-                            </button>
+                            </Button>
 
                             {showDropdown && (
                                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
@@ -495,7 +465,7 @@ const PublicProjectCard = ({ project, onProjectClick, formatDate, getLanguageIco
                         <span>•</span>
                         <span>{formatDate(project.updatedAt)}</span>
                     </div>
-                </div>
+                </div>ф
             </div>
         </div>
     );
