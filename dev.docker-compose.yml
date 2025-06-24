@@ -46,7 +46,7 @@ services:
       - REACT_APP_RAPID_API_KEY=${JUDGE0_API_HOST}
     volumes:
       - ./frontend:/app
-    command: npm start
+    command: yarn start
 
   mongodb:
     image: mongo:7-jammy

@@ -1,6 +1,10 @@
 // Updated src/App.js to integrate with backend
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { useAuth } from './hooks/useAuth';
+import { authService } from './services/auth';
+import { apiService } from './services/api';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
