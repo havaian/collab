@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
-import apiService from '../../services/api';
+import { apiService } from '../../services/apiService';
 import CodeEditorWindow from '../CodeEditorWindow';
 import OutputWindow from '../OutputWindow';
 import CustomInput from '../CustomInput';
