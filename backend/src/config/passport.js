@@ -6,7 +6,7 @@ const authService = require('../auth/service');
 passport.use(new GitHubStrategy({
   clientID: process.env.GITHUB_CLIENT_ID,
   clientSecret: process.env.GITHUB_CLIENT_SECRET,
-  callbackURL: process.env.GITHUB_CALLBACK_URL || "http://localhost:5000/auth/github/callback"
+  callbackURL: process.env.GITHUB_CALLBACK_URL || "http://localhost:5000/api/auth/github/callback"
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     const user = await authService.findOrCreateUser(profile, accessToken);
