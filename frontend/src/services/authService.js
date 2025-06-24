@@ -1,82 +1,39 @@
-// API Base URL
-const API_BASE_URL = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api`;
+// services/authService.js
+import apiService from './apiService';
 
-// Auth Service Class
 class AuthService {
     constructor() {
-        this.baseURL = `${API_BASE_URL}/auth`;
+        this.currentUser = null;
+        this.authStateListeners = [];
+        this.initializeAuthState();
     }
 
-    // Get auth token from localStorage
-    getToken() {
-        return localStorage.getItem('authToken');
-    }
-
-    // Set auth headers for requests
-    getAuthHeaders() {
-        const token = this.getToken();
-        return {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` })
-        };
-    }
-
-    // Make authenticated API request
-    async apiRequest(endpoint, options = {}) {
-        const url = `${this.baseURL}${endpoint}`;
-        const config = {
-            headers: this.getAuthHeaders(),
-            ...options
-        };
-
+    // Initialize authentication state on service creation
+    async initializeAuthState() {
         try {
-            const response = await fetch(url, config);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || `HTTP error! status: ${response.status}`);
+            const token = apiService.getToken();
+            if (token) {
+                // Validate token and get user info
+                await this.getCurrentUser();
             }
-
-            return data;
         } catch (error) {
-            console.error(`API request failed: ${endpoint}`, error);
+            console.error('Failed to initialize auth state:', error);
+            this.logout();
+        }
+    }
+
+    // Get current user information
+    async getCurrentUser() {
+        try {
+            const response = await apiService.get('/auth/user');
+            this.currentUser = response.user || response;
+            this.notifyAuthStateChange(true, this.currentUser);
+            return this.currentUser;
+        } catch (error) {
+            console.error('Failed to get current user:', error);
+            this.currentUser = null;
+            this.notifyAuthStateChange(false, null);
             throw error;
-        }
-    }
-
-    // Login with email and password
-    async login(credentials) {
-        try {
-            const response = await this.apiRequest('/login', {
-                method: 'POST',
-                body: JSON.stringify(credentials)
-            });
-
-            if (response.token) {
-                localStorage.setItem('authToken', response.token);
-            }
-
-            return response;
-        } catch (error) {
-            throw new Error(error.message || 'Login failed');
-        }
-    }
-
-    // Register new user
-    async register(userData) {
-        try {
-            const response = await this.apiRequest('/register', {
-                method: 'POST',
-                body: JSON.stringify(userData)
-            });
-
-            if (response.token) {
-                localStorage.setItem('authToken', response.token);
-            }
-
-            return response;
-        } catch (error) {
-            throw new Error(error.message || 'Registration failed');
         }
     }
 
@@ -84,166 +41,336 @@ class AuthService {
     async loginWithGitHub() {
         try {
             // Redirect to GitHub OAuth
-            window.location.href = `${this.baseURL}/github`;
+            const githubAuthUrl = `${apiService.client.defaults.baseURL}/auth/github`;
+            window.location.href = githubAuthUrl;
         } catch (error) {
-            throw new Error('GitHub login initialization failed');
+            console.error('GitHub login failed:', error);
+            throw error;
         }
     }
 
-    // Handle GitHub OAuth callback
-    async handleGitHubCallback(code, state) {
+    // Google OAuth login
+    async loginWithGoogle() {
         try {
-            const response = await this.apiRequest('/github/callback', {
-                method: 'POST',
-                body: JSON.stringify({ code, state })
+            // Redirect to Google OAuth
+            const googleAuthUrl = `${apiService.client.defaults.baseURL}/auth/google`;
+            window.location.href = googleAuthUrl;
+        } catch (error) {
+            console.error('Google login failed:', error);
+            throw error;
+        }
+    }
+
+    // Handle OAuth callback (called after redirect from OAuth provider)
+    async handleOAuthCallback(code, state, provider = 'github') {
+        try {
+            const response = await apiService.post(`/auth/${provider}/callback`, {
+                code,
+                state
             });
 
-            if (response.token) {
-                localStorage.setItem('authToken', response.token);
+            const { token, refreshToken, user } = response;
+
+            // Store tokens
+            apiService.setToken(token);
+            if (refreshToken) {
+                apiService.setRefreshToken(refreshToken);
             }
 
-            return response;
+            // Set current user
+            this.currentUser = user;
+            this.notifyAuthStateChange(true, user);
+
+            return { user, token };
         } catch (error) {
-            throw new Error(error.message || 'GitHub authentication failed');
+            console.error(`${provider} OAuth callback failed:`, error);
+            throw error;
         }
     }
 
-    // Validate existing token
-    async validateToken(token = null) {
+    // Manual login (if you have email/password)
+    async login(credentials) {
         try {
-            const tokenToValidate = token || this.getToken();
-            if (!tokenToValidate) {
-                throw new Error('No token provided');
+            const response = await apiService.post('/auth/login', credentials);
+            const { token, refreshToken, user } = response;
+
+            // Store tokens
+            apiService.setToken(token);
+            if (refreshToken) {
+                apiService.setRefreshToken(refreshToken);
             }
 
-            const response = await this.apiRequest('/validate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${tokenToValidate}`
-                }
-            });
+            // Set current user
+            this.currentUser = user;
+            this.notifyAuthStateChange(true, user);
 
-            return response;
+            return { user, token };
         } catch (error) {
-            // Clear invalid token
-            localStorage.removeItem('authToken');
-            throw new Error('Token validation failed');
+            console.error('Login failed:', error);
+            throw error;
         }
     }
 
-    // Get current user profile
-    async getCurrentUser() {
+    // Register new user
+    async register(userData) {
         try {
-            const response = await this.apiRequest('/user', {
-                method: 'GET'
-            });
+            const response = await apiService.post('/auth/register', userData);
+            const { token, refreshToken, user } = response;
 
-            return response;
+            // Store tokens
+            apiService.setToken(token);
+            if (refreshToken) {
+                apiService.setRefreshToken(refreshToken);
+            }
+
+            // Set current user
+            this.currentUser = user;
+            this.notifyAuthStateChange(true, user);
+
+            return { user, token };
         } catch (error) {
-            throw new Error(error.message || 'Failed to get user profile');
-        }
-    }
-
-    // Update user profile
-    async updateProfile(userData) {
-        try {
-            const response = await this.apiRequest('/profile', {
-                method: 'PUT',
-                body: JSON.stringify(userData)
-            });
-
-            return response;
-        } catch (error) {
-            throw new Error(error.message || 'Profile update failed');
+            console.error('Registration failed:', error);
+            throw error;
         }
     }
 
     // Logout user
     async logout() {
         try {
-            await this.apiRequest('/logout', {
-                method: 'POST'
-            });
+            // Call logout endpoint to invalidate token on server
+            if (apiService.getToken()) {
+                await apiService.post('/auth/logout');
+            }
         } catch (error) {
-            console.error('Logout request failed:', error);
-            // Continue with local logout even if server request fails
+            console.error('Logout API call failed:', error);
+            // Continue with client-side logout even if server call fails
         } finally {
-            // Always clear local storage
-            localStorage.removeItem('authToken');
+            // Clear tokens and user data
+            apiService.clearTokens();
+            this.currentUser = null;
+            this.notifyAuthStateChange(false, null);
         }
     }
 
-    // Change password
-    async changePassword(currentPassword, newPassword) {
+    // Update user profile
+    async updateProfile(userData) {
         try {
-            const response = await this.apiRequest('/change-password', {
-                method: 'POST',
-                body: JSON.stringify({
-                    currentPassword,
-                    newPassword
-                })
-            });
+            const response = await apiService.put('/auth/profile', userData);
+            this.currentUser = { ...this.currentUser, ...response.user };
+            this.notifyAuthStateChange(true, this.currentUser);
+            return this.currentUser;
+        } catch (error) {
+            console.error('Profile update failed:', error);
+            throw error;
+        }
+    }
 
+    // Update user password
+    async updatePassword(passwordData) {
+        try {
+            const response = await apiService.put('/auth/password', passwordData);
             return response;
         } catch (error) {
-            throw new Error(error.message || 'Password change failed');
+            console.error('Password update failed:', error);
+            throw error;
         }
     }
 
     // Request password reset
     async requestPasswordReset(email) {
         try {
-            const response = await this.apiRequest('/forgot-password', {
-                method: 'POST',
-                body: JSON.stringify({ email })
-            });
-
+            const response = await apiService.post('/auth/password-reset', { email });
             return response;
         } catch (error) {
-            throw new Error(error.message || 'Password reset request failed');
+            console.error('Password reset request failed:', error);
+            throw error;
         }
     }
 
     // Reset password with token
     async resetPassword(token, newPassword) {
         try {
-            const response = await this.apiRequest('/reset-password', {
-                method: 'POST',
-                body: JSON.stringify({
-                    token,
-                    newPassword
-                })
+            const response = await apiService.post('/auth/password-reset/confirm', {
+                token,
+                password: newPassword
             });
-
             return response;
         } catch (error) {
-            throw new Error(error.message || 'Password reset failed');
+            console.error('Password reset failed:', error);
+            throw error;
+        }
+    }
+
+    // Verify email
+    async verifyEmail(token) {
+        try {
+            const response = await apiService.post('/auth/verify-email', { token });
+            return response;
+        } catch (error) {
+            console.error('Email verification failed:', error);
+            throw error;
+        }
+    }
+
+    // Resend verification email
+    async resendVerification() {
+        try {
+            const response = await apiService.post('/auth/resend-verification');
+            return response;
+        } catch (error) {
+            console.error('Resend verification failed:', error);
+            throw error;
+        }
+    }
+
+    // Get user settings
+    async getUserSettings() {
+        try {
+            const response = await apiService.get('/auth/settings');
+            return response.settings || response;
+        } catch (error) {
+            console.error('Failed to get user settings:', error);
+            throw error;
+        }
+    }
+
+    // Update user settings
+    async updateUserSettings(settings) {
+        try {
+            const response = await apiService.put('/auth/settings', settings);
+            return response.settings || response;
+        } catch (error) {
+            console.error('Failed to update user settings:', error);
+            throw error;
         }
     }
 
     // Check if user is authenticated
     isAuthenticated() {
-        return !!this.getToken();
+        return !!this.currentUser && !!apiService.getToken();
     }
 
-    // Get user ID from token (client-side decode - for display only)
-    getUserIdFromToken() {
-        try {
-            const token = this.getToken();
-            if (!token) return null;
+    // Check if user has specific role
+    hasRole(role) {
+        return this.currentUser?.roles?.includes(role) || false;
+    }
 
-            // Basic JWT decode (not for security, just for convenience)
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload.userId || payload.id || null;
+    // Check if user has specific permission
+    hasPermission(permission) {
+        return this.currentUser?.permissions?.includes(permission) || false;
+    }
+
+    // Get current user
+    getUser() {
+        return this.currentUser;
+    }
+
+    // Get user ID
+    getUserId() {
+        return this.currentUser?.id || this.currentUser?._id;
+    }
+
+    // Get user email
+    getUserEmail() {
+        return this.currentUser?.email;
+    }
+
+    // Get user display name
+    getUserDisplayName() {
+        return this.currentUser?.displayName ||
+            this.currentUser?.username ||
+            this.currentUser?.email;
+    }
+
+    // Get user avatar
+    getUserAvatar() {
+        return this.currentUser?.avatar || this.currentUser?.profilePicture;
+    }
+
+    // Auth state management
+    addAuthStateListener(callback) {
+        this.authStateListeners.push(callback);
+
+        // Immediately call with current state
+        callback(this.isAuthenticated(), this.currentUser);
+
+        // Return unsubscribe function
+        return () => {
+            this.authStateListeners = this.authStateListeners.filter(
+                listener => listener !== callback
+            );
+        };
+    }
+
+    notifyAuthStateChange(isAuthenticated, user) {
+        this.authStateListeners.forEach(callback => {
+            try {
+                callback(isAuthenticated, user);
+            } catch (error) {
+                console.error('Auth state listener error:', error);
+            }
+        });
+    }
+
+    // Token management helpers
+    getToken() {
+        return apiService.getToken();
+    }
+
+    isTokenExpired() {
+        const token = apiService.getToken();
+        return !apiService.isTokenValid(token);
+    }
+
+    // Utility methods
+    async checkServerHealth() {
+        try {
+            const response = await apiService.healthCheck();
+            return response;
         } catch (error) {
-            console.error('Failed to decode token:', error);
-            return null;
+            console.error('Server health check failed:', error);
+            throw error;
+        }
+    }
+
+    // Force token refresh
+    async refreshToken() {
+        try {
+            const newToken = await apiService.refreshAuthToken();
+            return newToken;
+        } catch (error) {
+            console.error('Token refresh failed:', error);
+            this.logout();
+            throw error;
+        }
+    }
+
+    // Clear all auth data (for testing/debugging)
+    clearAuthData() {
+        apiService.clearTokens();
+        this.currentUser = null;
+        this.notifyAuthStateChange(false, null);
+    }
+
+    // Get auth headers for manual requests
+    getAuthHeaders() {
+        const token = apiService.getToken();
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    }
+
+    // Validate session
+    async validateSession() {
+        try {
+            const response = await apiService.get('/auth/validate');
+            return response.valid === true;
+        } catch (error) {
+            console.error('Session validation failed:', error);
+            return false;
         }
     }
 }
 
-// Create and export singleton instance
+// Create singleton instance
 const authService = new AuthService();
 
 export default authService;
