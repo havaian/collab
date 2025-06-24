@@ -9,6 +9,10 @@ import Login from './components/auth/LoginPage';
 import Editor from './components/Editor';
 import ProjectDashboard from './components/projects/ProjectDashboard';
 import CollaborativeEditor from './components/editor/CollaborativeEditor';
+import SettingsPage from './components/settings/SettingsPage';
+import ProfilePage from './components/profile/ProfilePage';
+import UserInvites from './components/invite/UserInvites';
+import GitHubIntegration from './components/github/GitHubIntegration';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import "./App.css";
@@ -97,6 +101,10 @@ function App() {
                   </div>
                 }
               />
+              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="/profile/:userId?" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+              <Route path="/invites" element={<ProtectedRoute><UserInvites /></ProtectedRoute>} />
+              <Route path="/github" element={<ProtectedRoute><GitHubIntegration /></ProtectedRoute>} />
             </Routes>
           </div>
         </Router>

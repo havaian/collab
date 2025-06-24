@@ -48,7 +48,10 @@ const userSchema = new mongoose.Schema({
             type: Boolean,
             default: true
         }
-    }
+    },
+    bio: { type: String, maxlength: 500 },
+    location: { type: String, maxlength: 100 },
+    website: { type: String, maxlength: 200 }
 }, {
     timestamps: true
 });

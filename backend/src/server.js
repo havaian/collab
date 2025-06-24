@@ -18,6 +18,9 @@ const executeRoutes = require('./execute/route');
 const chatRoutes = require('./chat/route');
 const exportRoutes = require('./export/route');
 const githubRoutes = require('./github/route');
+const settingsRoutes = require('./settings/route');
+const profileRoutes = require('./profile/route');
+const inviteRoutes = require('./invite/route');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -125,6 +128,9 @@ app.use('/api/execute', authMiddleware, executeRoutes);
 app.use('/api/chat', authMiddleware, chatRoutes);
 app.use('/api/export', authMiddleware, exportRoutes);
 app.use('/api/github', authMiddleware, githubRoutes);
+app.use('/api/settings', authMiddleware, settingsRoutes);
+app.use('/api/profile', authMiddleware, profileRoutes);
+app.use('/api/invite', authMiddleware, inviteRoutes);
 
 // Socket.IO setup
 const socketHandlers = new SocketHandlers(io);

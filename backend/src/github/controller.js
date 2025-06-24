@@ -1,122 +1,46 @@
 // src/github/controller.js
 const githubService = require('./service');
-const { validationResult } = require('express-validator');
+const Project = require('../project/model');
 
 class GitHubController {
-  async getUserRepositories(req, res) {
+  async getRepositories(req, res) {
     try {
-      const { page, limit, sort } = req.query;
-      const result = await githubService.getUserRepositories(req.user.id, {
-        page: parseInt(page) || 1,
-        limit: parseInt(limit) || 30,
-        sort
-      });
-      
-      res.json(result);
-    } catch (error) {
-      const status = error.message.includes('access token') ? 401 : 500;
-      res.status(status).json({ error: error.message });
-    }
-  }
-  
-  async getRepositoryContents(req, res) {
-    try {
-      const { repoFullName } = req.params;
-      const { path, branch } = req.query;
-      
-      const contents = await githubService.getRepositoryContents(
-        req.user.id,
-        repoFullName,
-        path,
-        branch
+      const { page = 1, per_page = 30 } = req.query;
+      const repositories = await githubService.getUserRepositories(
+        req.user.accessToken,
+        parseInt(page),
+        parseInt(per_page)
       );
-      
-      res.json({ contents });
+      res.json({ success: true, data: repositories });
     } catch (error) {
-      const status = error.message.includes('not found') ? 404 : 500;
-      res.status(status).json({ error: error.message });
+      res.status(500).json({ success: false, error: error.message });
     }
   }
-  
-  async importRepository(req, res) {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-      
-      const { projectId } = req.params;
-      const { repoFullName, branch, includePaths, excludePaths, maxDepth } = req.body;
-      
-      const result = await githubService.importRepositoryToProject(
-        req.user.id,
-        projectId,
-        repoFullName,
-        { branch, includePaths, excludePaths, maxDepth }
-      );
-      
-      res.json(result);
-    } catch (error) {
-      const status = error.message.includes('not found') || error.message.includes('access denied') ? 404 : 400;
-      res.status(status).json({ error: error.message });
-    }
-  }
-  
+
   async syncRepository(req, res) {
     try {
-      const { projectId } = req.params;
-      const result = await githubService.syncProjectWithRepository(req.user.id, projectId);
-      res.json(result);
+      const { projectId, repositoryUrl, branch = 'main' } = req.body;
+      const result = await githubService.syncRepository(projectId, repositoryUrl, branch, req.user.accessToken);
+      res.json({ success: true, data: result });
     } catch (error) {
-      const status = error.message.includes('not found') || error.message.includes('access denied') ? 404 : 400;
-      res.status(status).json({ error: error.message });
+      res.status(500).json({ success: false, error: error.message });
     }
   }
-  
-  async createRepository(req, res) {
+
+  async importRepository(req, res) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-      
-      const { projectId } = req.params;
-      const repoOptions = req.body;
-      
-      const result = await githubService.createGitHubRepository(req.user.id, projectId, repoOptions);
-      res.status(201).json(result);
-    } catch (error) {
-      const status = error.message.includes('not found') || error.message.includes('permissions') ? 404 : 400;
-      res.status(status).json({ error: error.message });
-    }
-  }
-  
-  async pushToRepository(req, res) {
-    try {
-      const { projectId } = req.params;
-      const { repoFullName, branch } = req.body;
-      
-      const result = await githubService.pushProjectFilesToRepo(
+      const { repositoryUrl, name, description, branch = 'main' } = req.body;
+      const project = await githubService.importRepository(
+        repositoryUrl,
+        name,
+        description,
+        branch,
         req.user.id,
-        projectId,
-        repoFullName,
-        branch
+        req.user.accessToken
       );
-      
-      res.json(result);
+      res.json({ success: true, data: project });
     } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-  
-  async disconnectRepository(req, res) {
-    try {
-      const { projectId } = req.params;
-      const result = await githubService.disconnectRepository(req.user.id, projectId);
-      res.json(result);
-    } catch (error) {
-      const status = error.message.includes('not found') || error.message.includes('permissions') ? 404 : 500;
-      res.status(status).json({ error: error.message });
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 }
