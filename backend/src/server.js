@@ -44,7 +44,7 @@ const corsOptions = {
 // Configure Socket.IO with CORS
 const io = socketIo(server, {
     cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        origin: process.env.FRONTEND_URL,
         methods: ["GET", "POST"],
         credentials: true
     },

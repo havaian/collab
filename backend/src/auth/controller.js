@@ -5,16 +5,16 @@ class AuthController {
     async githubCallback(req, res) {
         try {
             if (!req.user) {
-                return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?error=auth_failed`);
+                return res.redirect(`${process.env.CLIENT_URL}/auth/callback?error=auth_failed`);
             }
 
             const token = authService.generateJWT(req.user);
 
             // Redirect to frontend callback route with token - NOT to root
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?token=${token}`);
+            res.redirect(`${process.env.CLIENT_URL}/auth/callback?token=${token}`);
         } catch (error) {
             console.error('GitHub callback error:', error);
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?error=auth_failed`);
+            res.redirect(`${process.env.CLIENT_URL}/auth/callback?error=auth_failed`);
         }
     }
 

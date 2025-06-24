@@ -47,6 +47,7 @@ services:
       - REACT_APP_RAPID_API_URL=${JUDGE0_API_KEY}
       - REACT_APP_RAPID_API_HOST=${JUDGE0_API_URL}
       - REACT_APP_RAPID_API_KEY=${JUDGE0_API_HOST}
+      - WDS_SOCKET_PORT=0
     volumes:
       - ./frontend:/app
     networks:
