@@ -1,10 +1,10 @@
 // API Base URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api`;
 
 // Auth Service Class
 class AuthService {
     constructor() {
-        this.baseURL = `${API_BASE_URL}/api/auth`;
+        this.baseURL = `${API_BASE_URL}/auth`;
     }
 
     // Get auth token from localStorage

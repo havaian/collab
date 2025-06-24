@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const login = () => {
-        window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/auth/github`;
+        window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/github`;
     };
 
     const logout = async () => {
