@@ -10,22 +10,25 @@ services:
     depends_on:
       - mongodb
     ports:
-      - "${BACKEND_EXPOSE:-5000}:${BACKEND_PORT:-5000}"
+      - "127.0.0.1:${BACKEND_EXPOSE:-5000}:${BACKEND_PORT:-5000}"
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - PORT=${BACKEND_PORT:-5000}
+      - BACKEND_PORT=${BACKEND_PORT:-5000}
       - MONGODB_URI=mongodb://mongodb:${MONGODB_PORT:-27017}/${MONGODB_DATABASE:-gpt_collab}
       - JWT_SECRET=${JWT_SECRET}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_CALLBACK_URL=http://localhost:${BACKEND_PORT:-5000}/auth/github/callback
+      - CLIENT_URL=${CLIENT_URL:-http://localhost:${FRONTEND_EXPOSE:-3000}}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - JUDGE0_API_KEY=${JUDGE0_API_KEY}
       - JUDGE0_API_URL=${JUDGE0_API_URL}
       - JUDGE0_API_HOST=${JUDGE0_API_HOST}
-      - CLIENT_URL=${CLIENT_URL:-http://localhost:3000}
     volumes:
       - ./backend:/app
     command: npm run dev
+    networks:
+      - gpt-collab-network
 
   frontend:
     build:
@@ -35,7 +38,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_EXPOSE:-3000}:3000"
+      - "127.0.0.1:${FRONTEND_EXPOSE:-3000}:3000"
     environment:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true
@@ -47,15 +50,17 @@ services:
     volumes:
       - ./frontend:/app
     command: yarn start
+    networks:
+      - gpt-collab-network
 
   mongodb:
-    image: mongo:7-jammy
+    image: mongo:latest
     container_name: gpt-collab-mongodb
     restart: unless-stopped
     volumes:
       - mongodb_data:/data/db
     ports:
-      - "${MONGODB_EXPOSE:-27017}:${MONGODB_PORT:-27017}"
+      - "127.0.0.1:${MONGODB_EXPOSE:-27017}:${MONGODB_PORT:-27017}"
     environment:
       - MONGO_INITDB_DATABASE=${MONGODB_DATABASE:-gpt_collab}
     networks:
