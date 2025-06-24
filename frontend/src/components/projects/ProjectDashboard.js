@@ -157,8 +157,8 @@ const ProjectDashboard = () => {
                             <button
                                 onClick={() => setActiveTab('my-projects')}
                                 className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'my-projects'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     }`}
                             >
                                 My Projects ({projects.length})
@@ -166,8 +166,8 @@ const ProjectDashboard = () => {
                             <button
                                 onClick={() => setActiveTab('explore')}
                                 className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'explore'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     }`}
                             >
                                 <GlobeAltIcon className="h-4 w-4 inline mr-1" />
@@ -546,19 +546,20 @@ const CreateProjectModal = ({ newProject, setNewProject, onSubmit, onClose }) =>
                         </div>
 
                         <div className="flex justify-end space-x-3 mt-6">
-                            <button
-                                type="button"
+                            <Button
+                                variant="ghost"
                                 onClick={onClose}
-                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="flex items-center space-x-2 flex-1 md:flex-initial"
                             >
-                                Cancel
-                            </button>
-                            <button
+                                <span>Cancel</span>
+                            </Button>
+                            <Button
                                 type="submit"
-                                className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                variant="ghost"
+                                className="flex items-center space-x-2 flex-1 md:flex-initial"
                             >
-                                Create Project
-                            </button>
+                                <span>Create Project</span>
+                            </Button>
                         </div>
                     </form>
                 </div>
@@ -580,12 +581,13 @@ const ImportProjectModal = ({ onClose, onImportSuccess }) => {
                         GitHub import functionality coming soon! You'll be able to import entire repositories directly into your projects.
                     </p>
                     <div className="flex justify-end">
-                        <button
+                        <Button
+                            variant="ghost"
                             onClick={onClose}
-                            className="px-4 py-2 bg-gray-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-gray-700"
+                            className="flex items-center space-x-2 flex-1 md:flex-initial"
                         >
-                            Close
-                        </button>
+                            <span>Close</span>
+                        </Button>
                     </div>
                 </div>
             </div>
