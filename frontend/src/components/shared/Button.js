@@ -13,24 +13,28 @@ const Button = ({
     className = '',
     ...props
 }) => {
-    const baseClasses = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
 
+    // Updated variants to match input/dropdown styling from your code editor
     const variants = {
-        primary: 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md hover:shadow-lg transform hover:scale-[1.02] focus:ring-blue-500',
-        secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 shadow-sm hover:shadow-md focus:ring-blue-500',
-        ghost: 'text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:ring-blue-500',
-        danger: 'bg-red-600 text-white hover:bg-red-700 shadow-md hover:shadow-lg focus:ring-red-500',
-        success: 'bg-green-600 text-white hover:bg-green-700 shadow-md hover:shadow-lg focus:ring-green-500',
-        outline: 'border-2 border-blue-500 text-blue-600 hover:bg-blue-50 focus:ring-blue-500',
-        dark: 'bg-gray-900 text-white hover:bg-gray-800 shadow-md hover:shadow-lg focus:ring-gray-500'
+        // Primary variant matching the input/dropdown style
+        primary: 'bg-white text-black border-2 border-black shadow-[5px_5px_0px_0px_rgba(0,0,0)] hover:shadow-none hover:border-black',
+
+        // Alternative variants keeping the same styling pattern
+        secondary: 'bg-gray-100 text-black border-2 border-black shadow-[5px_5px_0px_0px_rgba(0,0,0)] hover:shadow-none hover:border-black',
+        ghost: 'bg-transparent text-black border-2 border-black shadow-[5px_5px_0px_0px_rgba(0,0,0)] hover:shadow-none hover:bg-gray-50',
+        danger: 'bg-red-50 text-red-600 border-2 border-red-500 shadow-[5px_5px_0px_0px_rgba(239,68,68)] hover:shadow-none hover:border-red-500',
+        success: 'bg-green-50 text-green-600 border-2 border-green-500 shadow-[5px_5px_0px_0px_rgba(34,197,94)] hover:shadow-none hover:border-green-500',
+        outline: 'bg-white text-blue-600 border-2 border-blue-500 shadow-[5px_5px_0px_0px_rgba(59,130,246)] hover:shadow-none hover:border-blue-500',
+        dark: 'bg-gray-900 text-white border-2 border-gray-900 shadow-[5px_5px_0px_0px_rgba(17,24,39)] hover:shadow-none hover:border-gray-700'
     };
 
     const sizes = {
         xs: 'px-2 py-1 text-xs rounded',
-        sm: 'px-3 py-1.5 text-sm rounded-md',
-        md: 'px-4 py-2 text-sm rounded-lg',
-        lg: 'px-6 py-3 text-base rounded-lg',
-        xl: 'px-8 py-4 text-lg rounded-xl'
+        sm: 'px-3 py-1.5 text-sm rounded',
+        md: 'px-4 py-2 text-sm rounded-md',
+        lg: 'px-6 py-3 text-base rounded-md',
+        xl: 'px-8 py-4 text-lg rounded-lg'
     };
 
     const buttonClasses = classnames(
