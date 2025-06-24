@@ -1,5 +1,5 @@
 // frontend/src/contexts/AuthContext.js
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import authService from '../services/authService';
 
 const AuthContext = createContext();
@@ -12,39 +12,33 @@ const authReducer = (state, action) => {
             return {
                 ...state,
                 loading: false,
-                error: null,
+                isAuthenticated: true,
                 user: action.payload.user,
                 token: action.payload.token,
-                isAuthenticated: true
+                error: null
             };
         case 'LOGIN_ERROR':
             return {
                 ...state,
                 loading: false,
-                error: action.payload,
+                isAuthenticated: false,
                 user: null,
                 token: null,
-                isAuthenticated: false
+                error: action.payload
             };
         case 'LOGOUT':
             return {
                 ...state,
+                loading: false,
+                isAuthenticated: false,
                 user: null,
                 token: null,
-                isAuthenticated: false,
-                error: null,
-                loading: false
+                error: null
             };
         case 'UPDATE_USER':
-            return {
-                ...state,
-                user: { ...state.user, ...action.payload }
-            };
+            return { ...state, user: action.payload };
         case 'SET_LOADING':
-            return {
-                ...state,
-                loading: action.payload
-            };
+            return { ...state, loading: action.payload };
         default:
             return state;
     }
@@ -60,29 +54,43 @@ const initialState = {
 
 export const AuthProvider = ({ children }) => {
     const [state, dispatch] = useReducer(authReducer, initialState);
+    const [authInitialized, setAuthInitialized] = useState(false);
 
     useEffect(() => {
-        // Handle OAuth callback first
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        const error = urlParams.get('error');
-
-        if (token) {
-            // Clear URL parameters immediately to prevent loops
-            window.history.replaceState({}, document.title, window.location.pathname);
-            handleOAuthCallback(token);
-            return;
+        // Only initialize auth once
+        if (!authInitialized) {
+            initializeAuth();
+            setAuthInitialized(true);
         }
+    }, [authInitialized]);
 
-        if (error) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-            dispatch({ type: 'LOGIN_ERROR', payload: 'Authentication failed' });
-            return;
+    const initializeAuth = async () => {
+        try {
+            // Handle OAuth callback first
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const error = urlParams.get('error');
+
+            if (token) {
+                // Clear URL parameters immediately to prevent loops
+                window.history.replaceState({}, document.title, window.location.pathname);
+                await handleOAuthCallback(token);
+                return;
+            }
+
+            if (error) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+                dispatch({ type: 'LOGIN_ERROR', payload: 'Authentication failed' });
+                return;
+            }
+
+            // Check existing auth state
+            await checkExistingAuth();
+        } catch (error) {
+            console.error('Auth initialization failed:', error);
+            dispatch({ type: 'LOGIN_ERROR', payload: error.message });
         }
-
-        // Check existing auth state - but DON'T reinitialize authService
-        checkExistingAuth();
-    }, []);
+    };
 
     const handleOAuthCallback = async (token) => {
         try {
@@ -98,10 +106,16 @@ export const AuthProvider = ({ children }) => {
                 type: 'LOGIN_SUCCESS',
                 payload: { user, token }
             });
+
+            // Return success response for LoginCallback component
+            return { success: true, user, token };
         } catch (error) {
             console.error('OAuth callback failed:', error);
             authService.clearAuthData();
             dispatch({ type: 'LOGIN_ERROR', payload: error.message });
+
+            // Return error response for LoginCallback component
+            return { success: false, error: error.message };
         }
     };
 

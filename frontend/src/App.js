@@ -89,8 +89,8 @@ function App() {
                     <div className="text-center">
                       <h1 className="text-2xl font-bold mb-4">Page Not Found</h1>
                       <p className="text-gray-600">The page you're looking for doesn't exist.</p>
-                      <a href="/login" className="text-blue-500 hover:text-blue-700 mt-4 inline-block">
-                        Go to Login
+                      <a href="/" className="text-blue-500 hover:text-blue-700 mt-4 inline-block">
+                        Go to main page
                       </a>
                     </div>
                   </div>

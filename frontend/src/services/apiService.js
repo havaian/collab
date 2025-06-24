@@ -249,6 +249,87 @@ class ApiService {
         }
     }
 
+    async getProjects({ search, sortBy = 'updatedAt', page = 1, limit = 10 } = {}) {
+        try {
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (sortBy) params.append('sortBy', sortBy);
+            if (page) params.append('page', page.toString());
+            if (limit) params.append('limit', limit.toString());
+
+            const response = await this.client.get(`/projects?${params.toString()}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch projects:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async getPublicProjects({ search, page = 1, limit = 10 } = {}) {
+        try {
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (page) params.append('page', page.toString());
+            if (limit) params.append('limit', limit.toString());
+
+            const response = await this.client.get(`/projects/public?${params.toString()}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch public projects:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async createProject(projectData) {
+        try {
+            const response = await this.client.post('/projects', projectData);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to create project:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async getProject(projectId) {
+        try {
+            const response = await this.client.get(`/projects/${projectId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch project:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async updateProject(projectId, projectData) {
+        try {
+            const response = await this.client.put(`/projects/${projectId}`, projectData);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to update project:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async deleteProject(projectId) {
+        try {
+            const response = await this.client.delete(`/projects/${projectId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to delete project:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async addCollaborator(projectId, collaboratorData) {
+        try {
+            const response = await this.client.post(`/projects/${projectId}/collaborators`, collaboratorData);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to add collaborator:', error);
+            throw this.handleError(error);
+        }
+    }
+
     // File upload method
     async uploadFile(url, file, onUploadProgress = null) {
         try {

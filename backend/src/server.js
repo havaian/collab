@@ -41,9 +41,13 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
 
-// Socket.IO configuration
+// Configure Socket.IO with CORS
 const io = socketIo(server, {
-    cors: corsOptions,
+    cors: {
+        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        methods: ["GET", "POST"],
+        credentials: true
+    },
     transports: ['websocket', 'polling']
 });
 

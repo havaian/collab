@@ -30,4 +30,56 @@ const authMiddleware = async (req, res, next) => {
     }
 };
 
-module.exports = { authMiddleware };
+// Optional auth middleware (for routes that work with or without auth)
+const optionalAuth = async (req, res, next) => {
+    try {
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        
+        if (token) {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await User.findById(decoded.id).select('-accessToken -refreshToken');
+            
+            if (user) {
+                req.user = user;
+            }
+        }
+        
+        next();
+    } catch (error) {
+        // Continue without authentication for optional auth
+        next();
+    }
+};
+
+// Admin only middleware
+const requireAdmin = async (req, res, next) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ 
+                success: false,
+                error: 'Authentication required' 
+            });
+        }
+
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ 
+                success: false,
+                error: 'Admin access required' 
+            });
+        }
+
+        next();
+    } catch (error) {
+        console.error('Admin middleware error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Authorization error' 
+        });
+    }
+};
+
+module.exports = { 
+    authMiddleware, 
+    optionalAuth, 
+    requireAdmin 
+};
