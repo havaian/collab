@@ -9,6 +9,8 @@ export const AuthProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
     useEffect(() => {
         initializeAuth();
     }, []);
@@ -17,27 +19,31 @@ export const AuthProvider = ({ children }) => {
         try {
             const token = localStorage.getItem('authToken');
             if (token) {
-                // TODO: Validate token with backend
-                // const response = await authService.validateToken(token);
-                // if (response.valid) {
-                //   setUser(response.user);
-                //   setIsAuthenticated(true);
-                // } else {
-                //   localStorage.removeItem('authToken');
-                // }
-
-                // Mock user for development
-                setUser({
-                    id: 'user-123',
-                    name: 'Developer User',
-                    email: 'dev@example.com',
-                    avatar: null
+                // Validate token with backend
+                const response = await fetch(`${API_BASE_URL}/auth/validate`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
                 });
-                setIsAuthenticated(true);
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    setUser(userData.user);
+                    setIsAuthenticated(true);
+                } else {
+                    // Token is invalid, remove it
+                    localStorage.removeItem('authToken');
+                    setUser(null);
+                    setIsAuthenticated(false);
+                }
             }
         } catch (error) {
             console.error('Auth initialization failed:', error);
             localStorage.removeItem('authToken');
+            setUser(null);
+            setIsAuthenticated(false);
         } finally {
             setIsLoading(false);
         }
@@ -46,25 +52,25 @@ export const AuthProvider = ({ children }) => {
     const login = async (credentials) => {
         try {
             setIsLoading(true);
-            // TODO: Implement actual login
-            // const response = await authService.login(credentials);
-            // const { token, user } = response.data;
 
-            // Mock login for development
-            const mockUser = {
-                id: 'user-123',
-                name: credentials.name || 'Test User',
-                email: credentials.email || 'test@example.com',
-                avatar: null
-            };
+            const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(credentials)
+            });
 
-            const mockToken = 'mock-jwt-token-' + Date.now();
+            const data = await response.json();
 
-            localStorage.setItem('authToken', mockToken);
-            setUser(mockUser);
-            setIsAuthenticated(true);
-
-            return { success: true, user: mockUser };
+            if (response.ok) {
+                localStorage.setItem('authToken', data.token);
+                setUser(data.user);
+                setIsAuthenticated(true);
+                return { success: true, user: data.user };
+            } else {
+                throw new Error(data.message || 'Login failed');
+            }
         } catch (error) {
             console.error('Login failed:', error);
             return { success: false, error: error.message };
@@ -76,37 +82,29 @@ export const AuthProvider = ({ children }) => {
     const loginWithGitHub = async () => {
         try {
             setIsLoading(true);
-            // TODO: Implement GitHub OAuth
-            // window.location.href = `${process.env.REACT_APP_API_URL}/auth/github`;
-
-            // Mock GitHub login for development
-            const mockUser = {
-                id: 'github-user-123',
-                name: 'GitHub User',
-                email: 'github@example.com',
-                avatar: 'https://github.com/identicons/user.png',
-                provider: 'github'
-            };
-
-            const mockToken = 'mock-github-token-' + Date.now();
-
-            localStorage.setItem('authToken', mockToken);
-            setUser(mockUser);
-            setIsAuthenticated(true);
-
-            return { success: true, user: mockUser };
+            // Redirect to GitHub OAuth
+            window.location.href = `${API_BASE_URL}/auth/github`;
         } catch (error) {
             console.error('GitHub login failed:', error);
-            return { success: false, error: error.message };
-        } finally {
             setIsLoading(false);
+            return { success: false, error: error.message };
         }
     };
 
     const logout = async () => {
         try {
-            // TODO: Notify backend of logout
-            // await authService.logout();
+            const token = localStorage.getItem('authToken');
+
+            // Notify backend of logout
+            if (token) {
+                await fetch(`${API_BASE_URL}/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+            }
 
             localStorage.removeItem('authToken');
             setUser(null);
@@ -127,6 +125,28 @@ export const AuthProvider = ({ children }) => {
     const updateUser = (userData) => {
         setUser(prev => ({ ...prev, ...userData }));
     };
+
+    // Handle OAuth callback
+    useEffect(() => {
+        const handleOAuthCallback = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const error = urlParams.get('error');
+
+            if (token) {
+                localStorage.setItem('authToken', token);
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                // Reinitialize auth to fetch user data
+                initializeAuth();
+            } else if (error) {
+                console.error('OAuth error:', error);
+                setIsLoading(false);
+            }
+        };
+
+        handleOAuthCallback();
+    }, []);
 
     const value = {
         user,

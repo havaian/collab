@@ -114,7 +114,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/projects', authMiddleware, projectRoutes);
 app.use('/api/files', authMiddleware, fileRoutes);
 app.use('/api/execute', authMiddleware, executeRoutes);

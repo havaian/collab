@@ -21,7 +21,7 @@ class ApiService {
         };
     }
 
-    // Make authenticated API request
+    // Make authenticated API request with error handling
     async apiRequest(endpoint, options = {}) {
         const url = `${this.baseURL}${endpoint}`;
         const config = {
@@ -42,6 +42,11 @@ class ApiService {
             }
 
             if (!response.ok) {
+                // Handle authentication errors
+                if (response.status === 401) {
+                    localStorage.removeItem('authToken');
+                    window.location.reload(); // Force re-authentication
+                }
                 throw new Error(data.message || data || `HTTP error! status: ${response.status}`);
             }
 
@@ -55,9 +60,18 @@ class ApiService {
     // ==================== PROJECT ENDPOINTS ====================
 
     // Get all projects for current user
-    async getProjects() {
+    async getProjects(options = {}) {
         try {
-            return await this.apiRequest('/projects', {
+            const queryParams = new URLSearchParams();
+            if (options.page) queryParams.append('page', options.page);
+            if (options.limit) queryParams.append('limit', options.limit);
+            if (options.search) queryParams.append('search', options.search);
+            if (options.sortBy) queryParams.append('sortBy', options.sortBy);
+
+            const query = queryParams.toString();
+            const endpoint = `/projects${query ? `?${query}` : ''}`;
+
+            return await this.apiRequest(endpoint, {
                 method: 'GET'
             });
         } catch (error) {
@@ -111,12 +125,54 @@ class ApiService {
         }
     }
 
+    // Join project with invite code
+    async joinProject(projectId, inviteCode) {
+        try {
+            return await this.apiRequest(`/projects/${projectId}/join`, {
+                method: 'POST',
+                body: JSON.stringify({ inviteCode })
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to join project');
+        }
+    }
+
+    // Leave project
+    async leaveProject(projectId) {
+        try {
+            return await this.apiRequest(`/projects/${projectId}/leave`, {
+                method: 'POST'
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to leave project');
+        }
+    }
+
+    // Get public projects
+    async getPublicProjects(options = {}) {
+        try {
+            const queryParams = new URLSearchParams();
+            if (options.page) queryParams.append('page', options.page);
+            if (options.limit) queryParams.append('limit', options.limit);
+            if (options.search) queryParams.append('search', options.search);
+
+            const query = queryParams.toString();
+            const endpoint = `/projects/public${query ? `?${query}` : ''}`;
+
+            return await this.apiRequest(endpoint, {
+                method: 'GET'
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to fetch public projects');
+        }
+    }
+
     // ==================== FILE ENDPOINTS ====================
 
     // Get project files
     async getProjectFiles(projectId) {
         try {
-            return await this.apiRequest(`/projects/${projectId}/files`, {
+            return await this.apiRequest(`/files/project/${projectId}`, {
                 method: 'GET'
             });
         } catch (error) {
@@ -124,33 +180,45 @@ class ApiService {
         }
     }
 
-    // Get single file content
-    async getFileContent(projectId, filePath) {
+    // Get single file
+    async getFile(fileId) {
         try {
-            return await this.apiRequest(`/projects/${projectId}/files/${encodeURIComponent(filePath)}`, {
+            return await this.apiRequest(`/files/${fileId}`, {
                 method: 'GET'
             });
         } catch (error) {
-            throw new Error(error.message || 'Failed to fetch file content');
+            throw new Error(error.message || 'Failed to fetch file');
         }
     }
 
-    // Create or update file
-    async saveFile(projectId, filePath, content) {
+    // Create new file
+    async createFile(fileData) {
         try {
-            return await this.apiRequest(`/projects/${projectId}/files/${encodeURIComponent(filePath)}`, {
-                method: 'PUT',
-                body: JSON.stringify({ content })
+            return await this.apiRequest('/files', {
+                method: 'POST',
+                body: JSON.stringify(fileData)
             });
         } catch (error) {
-            throw new Error(error.message || 'Failed to save file');
+            throw new Error(error.message || 'Failed to create file');
+        }
+    }
+
+    // Update file content
+    async updateFile(fileId, fileData) {
+        try {
+            return await this.apiRequest(`/files/${fileId}`, {
+                method: 'PUT',
+                body: JSON.stringify(fileData)
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to update file');
         }
     }
 
     // Delete file
-    async deleteFile(projectId, filePath) {
+    async deleteFile(fileId) {
         try {
-            return await this.apiRequest(`/projects/${projectId}/files/${encodeURIComponent(filePath)}`, {
+            return await this.apiRequest(`/files/${fileId}`, {
                 method: 'DELETE'
             });
         } catch (error) {
@@ -158,12 +226,56 @@ class ApiService {
         }
     }
 
+    // Rename file
+    async renameFile(fileId, newName) {
+        try {
+            return await this.apiRequest(`/files/${fileId}/rename`, {
+                method: 'PUT',
+                body: JSON.stringify({ name: newName })
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to rename file');
+        }
+    }
+
+    // ==================== CODE EXECUTION ENDPOINTS ====================
+
+    // Execute code
+    async executeCode(executeData) {
+        try {
+            return await this.apiRequest('/execute', {
+                method: 'POST',
+                body: JSON.stringify(executeData)
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to execute code');
+        }
+    }
+
+    // Get execution result
+    async getExecutionResult(executionId) {
+        try {
+            return await this.apiRequest(`/execute/${executionId}`, {
+                method: 'GET'
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to get execution result');
+        }
+    }
+
     // ==================== CHAT ENDPOINTS ====================
 
-    // Get chat history for project
-    async getChatHistory(projectId, limit = 50, offset = 0) {
+    // Get project chat history
+    async getChatHistory(projectId, options = {}) {
         try {
-            return await this.apiRequest(`/projects/${projectId}/chat?limit=${limit}&offset=${offset}`, {
+            const queryParams = new URLSearchParams();
+            if (options.page) queryParams.append('page', options.page);
+            if (options.limit) queryParams.append('limit', options.limit);
+
+            const query = queryParams.toString();
+            const endpoint = `/chat/${projectId}${query ? `?${query}` : ''}`;
+
+            return await this.apiRequest(endpoint, {
                 method: 'GET'
             });
         } catch (error) {
@@ -172,124 +284,14 @@ class ApiService {
     }
 
     // Send chat message
-    async sendChatMessage(projectId, message, context = {}) {
+    async sendChatMessage(projectId, messageData) {
         try {
-            return await this.apiRequest(`/projects/${projectId}/chat`, {
+            return await this.apiRequest(`/chat/${projectId}`, {
                 method: 'POST',
-                body: JSON.stringify({ message, context })
+                body: JSON.stringify(messageData)
             });
         } catch (error) {
             throw new Error(error.message || 'Failed to send chat message');
-        }
-    }
-
-    // ==================== CODE EXECUTION ENDPOINTS ====================
-
-    // Execute code
-    async executeCode(projectId, code, language, input = '') {
-        try {
-            return await this.apiRequest(`/projects/${projectId}/execute`, {
-                method: 'POST',
-                body: JSON.stringify({ code, language, input })
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Code execution failed');
-        }
-    }
-
-    // Get execution history
-    async getExecutionHistory(projectId, limit = 20) {
-        try {
-            return await this.apiRequest(`/projects/${projectId}/executions?limit=${limit}`, {
-                method: 'GET'
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to fetch execution history');
-        }
-    }
-
-    // ==================== COLLABORATION ENDPOINTS ====================
-
-    // Get project collaborators
-    async getCollaborators(projectId) {
-        try {
-            return await this.apiRequest(`/projects/${projectId}/collaborators`, {
-                method: 'GET'
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to fetch collaborators');
-        }
-    }
-
-    // Add collaborator to project
-    async addCollaborator(projectId, email, role = 'viewer') {
-        try {
-            return await this.apiRequest(`/projects/${projectId}/collaborators`, {
-                method: 'POST',
-                body: JSON.stringify({ email, role })
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to add collaborator');
-        }
-    }
-
-    // Update collaborator role
-    async updateCollaboratorRole(projectId, userId, role) {
-        try {
-            return await this.apiRequest(`/projects/${projectId}/collaborators/${userId}`, {
-                method: 'PUT',
-                body: JSON.stringify({ role })
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to update collaborator role');
-        }
-    }
-
-    // Remove collaborator
-    async removeCollaborator(projectId, userId) {
-        try {
-            return await this.apiRequest(`/projects/${projectId}/collaborators/${userId}`, {
-                method: 'DELETE'
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to remove collaborator');
-        }
-    }
-
-    // ==================== GITHUB INTEGRATION ENDPOINTS ====================
-
-    // Get user's GitHub repositories
-    async getGitHubRepos() {
-        try {
-            return await this.apiRequest('/github/repos', {
-                method: 'GET'
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to fetch GitHub repositories');
-        }
-    }
-
-    // Import project from GitHub
-    async importFromGitHub(repoUrl, projectName) {
-        try {
-            return await this.apiRequest('/github/import', {
-                method: 'POST',
-                body: JSON.stringify({ repoUrl, projectName })
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to import from GitHub');
-        }
-    }
-
-    // Export project to GitHub
-    async exportToGitHub(projectId, repoName, isPrivate = true) {
-        try {
-            return await this.apiRequest(`/projects/${projectId}/export/github`, {
-                method: 'POST',
-                body: JSON.stringify({ repoName, isPrivate })
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to export to GitHub');
         }
     }
 
@@ -298,105 +300,130 @@ class ApiService {
     // Export project as ZIP
     async exportProjectAsZip(projectId) {
         try {
-            const response = await fetch(`${this.baseURL}/projects/${projectId}/export/zip`, {
+            const response = await fetch(`${this.baseURL}/export/${projectId}/zip`, {
                 method: 'GET',
                 headers: this.getAuthHeaders()
             });
 
             if (!response.ok) {
-                throw new Error(`Export failed: ${response.statusText}`);
+                throw new Error('Failed to export project');
             }
 
-            return response.blob();
+            return response.blob(); // Return blob for download
         } catch (error) {
-            throw new Error(error.message || 'Failed to export project as ZIP');
+            throw new Error(error.message || 'Failed to export project');
         }
     }
 
-    // Export project as standalone HTML
-    async exportProjectAsHTML(projectId) {
+    // Export to GitHub Gist
+    async exportToGist(projectId, gistData) {
         try {
-            return await this.apiRequest(`/projects/${projectId}/export/html`, {
-                method: 'GET'
+            return await this.apiRequest(`/export/${projectId}/gist`, {
+                method: 'POST',
+                body: JSON.stringify(gistData)
             });
         } catch (error) {
-            throw new Error(error.message || 'Failed to export project as HTML');
+            throw new Error(error.message || 'Failed to export to GitHub Gist');
         }
     }
 
-    // ==================== SEARCH ENDPOINTS ====================
+    // ==================== GITHUB ENDPOINTS ====================
 
-    // Search across all projects
-    async searchProjects(query, filters = {}) {
+    // Get GitHub repositories
+    async getGitHubRepositories() {
         try {
-            const params = new URLSearchParams({
-                q: query,
-                ...filters
-            });
-
-            return await this.apiRequest(`/search/projects?${params}`, {
+            return await this.apiRequest('/github/repositories', {
                 method: 'GET'
             });
         } catch (error) {
-            throw new Error(error.message || 'Search failed');
+            throw new Error(error.message || 'Failed to fetch GitHub repositories');
         }
     }
 
-    // Search within project files
-    async searchInProject(projectId, query) {
+    // Connect project to GitHub repository
+    async connectToRepository(projectId, repoData) {
         try {
-            const params = new URLSearchParams({ q: query });
-
-            return await this.apiRequest(`/projects/${projectId}/search?${params}`, {
-                method: 'GET'
+            return await this.apiRequest(`/github/${projectId}/connect`, {
+                method: 'POST',
+                body: JSON.stringify(repoData)
             });
         } catch (error) {
-            throw new Error(error.message || 'Project search failed');
+            throw new Error(error.message || 'Failed to connect to repository');
+        }
+    }
+
+    // Pull from GitHub repository
+    async pullFromRepository(projectId) {
+        try {
+            return await this.apiRequest(`/github/${projectId}/pull`, {
+                method: 'POST'
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to pull from repository');
+        }
+    }
+
+    // Push to GitHub repository
+    async pushToRepository(projectId, pushData) {
+        try {
+            return await this.apiRequest(`/github/${projectId}/push`, {
+                method: 'POST',
+                body: JSON.stringify(pushData)
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to push to repository');
+        }
+    }
+
+    // Disconnect from GitHub repository
+    async disconnectRepository(projectId) {
+        try {
+            return await this.apiRequest(`/github/${projectId}/disconnect`, {
+                method: 'DELETE'
+            });
+        } catch (error) {
+            throw new Error(error.message || 'Failed to disconnect repository');
         }
     }
 
     // ==================== UTILITY METHODS ====================
 
-    // Upload file
-    async uploadFile(file, projectId, path = '') {
+    // Health check
+    async healthCheck() {
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('path', path);
+            const response = await fetch(`${API_BASE_URL}/health`);
+            return await response.json();
+        } catch (error) {
+            throw new Error('Backend service unavailable');
+        }
+    }
 
-            const response = await fetch(`${this.baseURL}/projects/${projectId}/upload`, {
+    // Upload file
+    async uploadFile(projectId, formData) {
+        try {
+            const token = this.getToken();
+            const response = await fetch(`${this.baseURL}/files/upload/${projectId}`, {
                 method: 'POST',
                 headers: {
-                    Authorization: `Bearer ${this.getToken()}`
-                    // Don't set Content-Type for FormData, let browser set it
+                    ...(token && { Authorization: `Bearer ${token}` })
+                    // Don't set Content-Type for FormData
                 },
                 body: formData
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || 'Upload failed');
+                throw new Error(data.message || 'Upload failed');
             }
 
-            return response.json();
+            return data;
         } catch (error) {
-            throw new Error(error.message || 'File upload failed');
-        }
-    }
-
-    // Get system status
-    async getSystemStatus() {
-        try {
-            return await this.apiRequest('/status', {
-                method: 'GET'
-            });
-        } catch (error) {
-            throw new Error(error.message || 'Failed to get system status');
+            throw new Error(error.message || 'Failed to upload file');
         }
     }
 }
 
-// Create and export singleton instance
+// Export singleton instance
 const apiService = new ApiService();
-
 export default apiService;

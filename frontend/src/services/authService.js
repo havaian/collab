@@ -135,7 +135,7 @@ class AuthService {
     // Get current user profile
     async getCurrentUser() {
         try {
-            const response = await this.apiRequest('/me', {
+            const response = await this.apiRequest('/user', {
                 method: 'GET'
             });
 
