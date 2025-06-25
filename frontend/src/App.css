@@ -7,12 +7,6 @@
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
 .App-header {
   background-color: #282c34;
   min-height: 100vh;
@@ -28,11 +22,110 @@
   color: #61dafb;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+/* Rainbow gradient animation keyframes - Fixed for continuous flow */
+@keyframes rainbow-gradient {
+  0% {
+    background-position: 0% 50%;
   }
-  to {
-    transform: rotate(360deg);
+
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* Rainbow stroke animation keyframes */
+@keyframes rainbow-stroke {
+  0% {
+    stroke: #ff0000;
+  }
+
+  /* red */
+  14.28% {
+    stroke: #ff7f00;
+  }
+
+  /* orange */
+  28.57% {
+    stroke: #ffff00;
+  }
+
+  /* yellow */
+  42.86% {
+    stroke: #00ff00;
+  }
+
+  /* green */
+  57.14% {
+    stroke: #0000ff;
+  }
+
+  /* blue */
+  71.43% {
+    stroke: #4b0082;
+  }
+
+  /* indigo */
+  85.71% {
+    stroke: #8f00ff;
+  }
+
+  /* violet */
+  100% {
+    stroke: #ff0000;
+  }
+
+  /* red */
+}
+
+/* Base styles for the animated logo */
+.animated-logo-container {
+  display: inline-block;
+  position: relative;
+}
+
+/* Fixed text rainbow animation on hover - proper gradient background clipping */
+.animated-logo-container:hover .logo-text {
+  background: linear-gradient(90deg,
+      #ff0000,
+      #ff7f00,
+      #ffff00,
+      #00ff00,
+      #0000ff,
+      #4b0082,
+      #8f00ff,
+      #ff0000,
+      #ff7f00,
+      #ffff00,
+      #00ff00,
+      #0000ff,
+      #4b0082,
+      #8f00ff);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow-gradient 0.5s linear infinite;
+}
+
+.logo-text {
+  transition: all 0.3s ease-in-out;
+  /* Ensure text has proper base styling */
+  background: linear-gradient(to right, #2563eb, #0e2558);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Accessibility - Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+
+  .animated-logo-container,
+  .animated-logo-container:hover .logo-text,
+  .animated-logo-container:hover .logo-icon,
+  .animated-logo-container:hover .logo-icon-only,
+  .animated-logo-container:hover .logo-path,
+  .animated-logo-container:hover .logo-svg {
+    animation: none !important;
+    transition: none !important;
   }
 }

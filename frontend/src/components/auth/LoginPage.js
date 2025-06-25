@@ -11,6 +11,7 @@ import {
     SparklesIcon,
     ArrowRightIcon
 } from '@heroicons/react/24/outline';
+import AnimatedLogo from '../shared/AnimatedLogo';
 
 const LoginPage = () => {
     const location = useLocation();
@@ -80,14 +81,11 @@ const LoginPage = () => {
             <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-6">
-                        <div className="flex items-center space-x-2">
-                            <div className="flex items-center">
-                                <img src="/logo.svg" alt="GPT-Collab Logo" className="h-8 w-8 mr-2" />
-                            </div>
-                            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                                GPT-Collab
-                            </span>
-                        </div>
+                        <AnimatedLogo 
+                            size="medium"
+                            onClick={() => navigate('/')}
+                            className="transition-all duration-200"
+                        />
                     </div>
                 </div>
             </header>
@@ -170,9 +168,9 @@ const LoginPage = () => {
                                         onClick={handleGitHubLogin}
                                         disabled={isLoading}
                                         loading={isLoading}
-                                        variant="dark"
+                                        variant="primary"
                                         size="lg"
-                                        className="w-full transform hover:scale-[1.02]"
+                                        className="w-full transform:scale-[1.02]"
                                     >
                                         {!isLoading && (
                                             <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
@@ -183,7 +181,7 @@ const LoginPage = () => {
                                         {!isLoading && <ArrowRightIcon className="w-4 h-4 ml-2" />}
                                     </Button>
 
-                                    <div className="pt-4 border-t border-gray-200">
+                                    <div className="pt-2">
                                         <p className="text-xs text-gray-500 text-center">
                                             By signing in, you agree to our{' '}
                                             <a href="#" className="text-blue-600 hover:text-blue-700">terms of service</a>{' '}

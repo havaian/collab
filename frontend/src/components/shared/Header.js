@@ -12,6 +12,7 @@ import {
     EnvelopeIcon,
 } from '@heroicons/react/24/outline';
 import Button from './Button';
+import AnimatedLogo from './AnimatedLogo';
 
 const Header = ({
     title,
@@ -91,14 +92,11 @@ const Header = ({
 
                         {/* Logo & Title */}
                         <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
-                                <div className="flex items-center">
-                                    <img src="/logo.svg" alt="GPT-Collab Logo" className="h-8 w-8 mr-2" />
-                                </div>
-                                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                                    GPT-Collab
-                                </span>
-                            </div>
+                            <AnimatedLogo 
+                                size="medium"
+                                onClick={() => navigate('/')}
+                                className="transition-all duration-200"
+                            />
 
                             {title && (
                                 <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
