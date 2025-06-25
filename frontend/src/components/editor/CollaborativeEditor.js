@@ -10,30 +10,29 @@ import CustomInput from '../CustomInput';
 import ChatInterface from '../chat/ChatInterface';
 import FileTree from './FileTree';
 import CollaboratorCursors from './CollaboratorCursors';
+import Header from '../shared/Header';
+import Button from '../shared/Button';
 import { toast } from 'react-toastify';
 import {
-    ArrowLeftIcon,
     ChatBubbleLeftIcon,
     XMarkIcon,
     PlayIcon,
     DocumentArrowDownIcon,
-    Cog6ToothIcon,
     UsersIcon,
     CloudArrowUpIcon,
     ShareIcon,
     GlobeAltIcon,
     CodeBracketSquareIcon,
-    ChevronDownIcon,
-    UserIcon,
-    EnvelopeIcon,
-    ArrowRightOnRectangleIcon
+    FolderIcon,
+    DocumentIcon,
+    PlusIcon
 } from '@heroicons/react/24/outline';
 
 const CollaborativeEditor = ({ readOnly = false }) => {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const { socket, connected } = useSocket();
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
 
     // Project and file state
     const [project, setProject] = useState(null);
@@ -42,6 +41,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
     const [code, setCode] = useState('');
     const [language, setLanguage] = useState('javascript');
     const [theme, setTheme] = useState('oceanic-next');
+    const [filesLoading, setFilesLoading] = useState(true);
 
     // Execution state
     const [customInput, setCustomInput] = useState('');
@@ -61,9 +61,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
     const [sidebarWidth, setSidebarWidth] = useState(300);
     const [outputHeight, setOutputHeight] = useState(300);
 
-    const [showUserMenu, setShowUserMenu] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
-    const userMenuRef = useRef(null);
 
     // Refs
     const editorRef = useRef(null);
@@ -72,17 +70,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
     // Auto-save delay
     const AUTO_SAVE_DELAY = 2000; // 2 seconds
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-                setShowUserMenu(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     useEffect(() => {
         loadProject();
@@ -125,11 +112,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         }
     }, [code, activeFile]);
 
-    const handleLogout = async () => {
-        await logout();
-        navigate('/login');
-    };
-
     const loadProject = async () => {
         try {
             const response = await apiService.getProject(projectId);
@@ -143,6 +125,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
     };
 
     const loadFiles = async () => {
+        setFilesLoading(true);
         try {
             const response = await apiService.getProjectFiles(projectId);
             setFiles(response.files);
@@ -156,6 +139,8 @@ const CollaborativeEditor = ({ readOnly = false }) => {
             }
         } catch (error) {
             toast.error('Failed to load files');
+        } finally {
+            setFilesLoading(false);
         }
     };
 
@@ -232,7 +217,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         socket.on('file:edit', ({ changes, user: editUser, fileId }) => {
             if (editUser.id !== user.id && fileId === activeFile?.id) {
                 // Apply collaborative changes (in a real implementation, this would use operational transforms)
-                // For now, we'll just show a notification
                 console.log('Collaborative edit received:', changes);
             }
         });
@@ -485,7 +469,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
     if (!project) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
                 <div className="flex flex-col items-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
                     <p className="text-gray-600">Loading project...</p>
@@ -494,211 +478,209 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         );
     }
 
-    return (
-        <div className="h-screen flex flex-col bg-gray-50">
-            {/* Header */}
-            <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
-                <div className="flex items-center space-x-4">
-                    <button
-                        onClick={() => navigate('/')}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
-                    >
-                        <ArrowLeftIcon className="h-4 w-4" />
-                        <span className="hidden md:inline">Back to Projects</span>
-                    </button>
+    // Header actions
+    const headerActions = [
+        // Connection Status
+        <div key="connection" className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-sm text-gray-600">
+                {connected ? 'Connected' : 'Disconnected'}
+            </span>
+        </div>,
 
-                    <div className="flex items-center space-x-3">
-                        <h1 className="text-xl font-semibold text-gray-900">{project.name}</h1>
-                        {project.isPublic && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                <GlobeAltIcon className="h-3 w-3 mr-1" />
-                                Public
+        // Active Users
+        activeUsers.length > 0 && (
+            <div key="users" className="flex items-center space-x-2">
+                <UsersIcon className="h-4 w-4 text-gray-500" />
+                <div className="flex -space-x-1">
+                    {activeUsers.slice(0, 3).map((user, i) => (
+                        <img
+                            key={user.id}
+                            src={user.avatar || '/default-avatar.png'}
+                            alt={user.username}
+                            className="h-6 w-6 rounded-full border-2 border-white"
+                            title={user.username}
+                        />
+                    ))}
+                    {activeUsers.length > 3 && (
+                        <div className="h-6 w-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                            <span className="text-xs font-medium text-gray-600">
+                                +{activeUsers.length - 3}
                             </span>
-                        )}
-                        {project.repository && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                <CodeBracketSquareIcon className="h-3 w-3 mr-1" />
-                                GitHub
-                            </span>
-                        )}
-                    </div>
-                </div>
-
-                {/* Center - Connection Status & Active Users */}
-                <div className="flex items-center space-x-4">
-                    {/* Connection Status */}
-                    <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span className="text-sm text-gray-600">
-                            {connected ? 'Connected' : 'Disconnected'}
-                        </span>
-                    </div>
-
-                    {/* Active Users */}
-                    {activeUsers.length > 0 && (
-                        <div className="flex items-center space-x-2">
-                            <UsersIcon className="h-4 w-4 text-gray-500" />
-                            <div className="flex -space-x-1">
-                                {activeUsers.slice(0, 3).map((user, i) => (
-                                    <img
-                                        key={user.id}
-                                        src={user.avatar || '/default-avatar.png'}
-                                        alt={user.username}
-                                        className="h-6 w-6 rounded-full border-2 border-white"
-                                        title={user.username}
-                                    />
-                                ))}
-                                {activeUsers.length > 3 && (
-                                    <div className="h-6 w-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-                                        <span className="text-xs font-medium text-gray-600">
-                                            +{activeUsers.length - 3}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     )}
                 </div>
+            </div>
+        ),
 
-                {/* Right - Action Buttons & User Menu */}
-                <div className="flex items-center space-x-3">
-                    {/* Quick Actions */}
-                    <div className="flex items-center space-x-2">
-                        {/* Run Code */}
-                        <button
-                            onClick={handleExecuteCode}
-                            disabled={processing || !code.trim()}
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            <PlayIcon className="h-4 w-4" />
-                            <span className="hidden md:inline">
-                                {processing ? 'Running...' : 'Run'}
-                            </span>
-                        </button>
+        // Run Button
+        <Button
+            key="run"
+            onClick={handleExecuteCode}
+            disabled={processing || !code.trim()}
+            variant="success"
+            size="sm"
+            className="flex items-center space-x-1"
+        >
+            <PlayIcon className="h-4 w-4" />
+            <span className="hidden md:inline">
+                {processing ? 'Running...' : 'Run'}
+            </span>
+        </Button>,
 
-                        {/* Share Project */}
-                        {!readOnly && (
-                            <button
-                                onClick={() => setShowShareModal(true)}
-                                className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-                            >
-                                <ShareIcon className="h-4 w-4" />
-                                <span className="hidden md:inline">Share</span>
-                            </button>
-                        )}
+        // Share Button
+        !readOnly && (
+            <Button
+                key="share"
+                onClick={() => setShowShareModal(true)}
+                variant="outline"
+                size="sm"
+                className="flex items-center space-x-1"
+            >
+                <ShareIcon className="h-4 w-4" />
+                <span className="hidden md:inline">Share</span>
+            </Button>
+        ),
 
-                        {/* GitHub Sync */}
-                        {!readOnly && project.repository && (
-                            <button
-                                onClick={() => navigate('/github')}
-                                className="flex items-center space-x-1 px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
-                                title="GitHub Sync"
-                            >
-                                <CloudArrowUpIcon className="h-4 w-4" />
-                                <span className="hidden md:inline">Sync</span>
-                            </button>
-                        )}
+        // GitHub Sync
+        !readOnly && project.repository && (
+            <Button
+                key="github"
+                onClick={() => navigate('/github')}
+                variant="ghost"
+                size="sm"
+                className="flex items-center space-x-1"
+                title="GitHub Sync"
+            >
+                <CloudArrowUpIcon className="h-4 w-4" />
+                <span className="hidden md:inline">Sync</span>
+            </Button>
+        ),
 
-                        {/* Settings */}
-                        {!readOnly && (
-                            <button
-                                onClick={() => setShowSettings(!showSettings)}
-                                className={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                                title="Project Settings"
-                            >
-                                <Cog6ToothIcon className="h-4 w-4" />
-                            </button>
-                        )}
+        // Chat Toggle
+        <Button
+            key="chat"
+            onClick={() => setShowChat(!showChat)}
+            variant="ghost"
+            size="sm"
+            className={showChat ? 'bg-blue-100 text-blue-700' : ''}
+            title="Toggle Chat"
+        >
+            <ChatBubbleLeftIcon className="h-4 w-4" />
+        </Button>
+    ].filter(Boolean);
 
-                        {/* Chat Toggle */}
-                        <button
-                            onClick={() => setShowChat(!showChat)}
-                            className={`p-2 rounded-md transition-colors ${showChat ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                            title="Toggle Chat"
-                        >
-                            <ChatBubbleLeftIcon className="h-4 w-4" />
-                        </button>
-                    </div>
+    // Project badges for header
+    const projectBadges = (
+        <div className="flex items-center space-x-2">
+            {project.isPublic && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <GlobeAltIcon className="h-3 w-3 mr-1" />
+                    Public
+                </span>
+            )}
+            {project.repository && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    <CodeBracketSquareIcon className="h-3 w-3 mr-1" />
+                    GitHub
+                </span>
+            )}
+        </div>
+    );
 
-                    {/* User Menu (Simplified for Editor) */}
-                    <div className="relative" ref={userMenuRef}>
-                        <button
-                            onClick={() => setShowUserMenu(!showUserMenu)}
-                            className="flex items-center space-x-2 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                        >
-                            <img
-                                src={user?.avatar || '/default-avatar.png'}
-                                alt={user?.username || 'User'}
-                                className="h-6 w-6 rounded-full object-cover"
-                            />
-                            <ChevronDownIcon className={`h-3 w-3 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
-                        </button>
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+            <Header
+                title={project.name}
+                subtitle="Collaborative coding with AI"
+                showBackButton={true}
+                backPath="/"
+                actions={headerActions}
+            >
+                {projectBadges}
+            </Header>
 
-                        {showUserMenu && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                                <button
-                                    onClick={() => {
-                                        navigate('/profile');
-                                        setShowUserMenu(false);
-                                    }}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
-                                >
-                                    <UserIcon className="h-4 w-4 text-gray-400" />
-                                    <span>Profile</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        navigate('/settings');
-                                        setShowUserMenu(false);
-                                    }}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
-                                >
-                                    <Cog6ToothIcon className="h-4 w-4 text-gray-400" />
-                                    <span>Settings</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        navigate('/invites');
-                                        setShowUserMenu(false);
-                                    }}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
-                                >
-                                    <EnvelopeIcon className="h-4 w-4 text-gray-400" />
-                                    <span>Invites</span>
-                                </button>
-                                <div className="border-t border-gray-100 my-1"></div>
-                                <button
-                                    onClick={() => {
-                                        handleLogout();
-                                        setShowUserMenu(false);
-                                    }}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm text-red-600"
-                                >
-                                    <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                                    <span>Sign out</span>
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </header>
-
-            {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden">
+            {/* Main Content - 85% height */}
+            <main className="h-[81.5vh] flex">
                 {/* File Tree Sidebar */}
                 {showFileTree && (
                     <div
                         className="bg-white border-r border-gray-200 overflow-y-auto resize-x"
                         style={{ width: sidebarWidth, minWidth: 200, maxWidth: 500 }}
                     >
-                        <FileTree
-                            files={files}
-                            activeFile={activeFile}
-                            onFileSelect={handleFileSelect}
-                            onCreateFile={handleCreateFile}
-                            onDeleteFile={handleDeleteFile}
-                            readOnly={readOnly}
-                        />
+                        <div className="h-full flex flex-col">
+                            {/* Header */}
+                            <div className="flex items-center justify-between p-3 border-b border-gray-200">
+                                <h3 className="text-sm font-medium text-gray-900">
+                                    Files
+                                </h3>
+                                {!readOnly && (
+                                    <Button
+                                        onClick={() => handleCreateFile('newfile.js')}
+                                        variant="ghost"
+                                        size="xs"
+                                        className="p-1"
+                                        title="New File"
+                                    >
+                                        <PlusIcon className="w-4 h-4" />
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* File Tree Content */}
+                            <div className="flex-1 overflow-y-auto">
+                                {filesLoading ? (
+                                    <div className="p-4">
+                                        <div className="animate-pulse space-y-2">
+                                            {[...Array(5)].map((_, i) => (
+                                                <div key={i} className="h-6 bg-gray-200 rounded"></div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : files.length === 0 ? (
+                                    <div className="p-4 text-center">
+                                        <DocumentIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                            No files yet
+                                        </h3>
+                                        <p className="text-gray-500 mb-4">
+                                            Create your first file to get started coding.
+                                        </p>
+                                        {!readOnly && (
+                                            <div className="space-y-2">
+                                                <Button
+                                                    onClick={() => handleCreateFile('index.js')}
+                                                    variant="primary"
+                                                    size="sm"
+                                                    className="w-full"
+                                                >
+                                                    <DocumentIcon className="h-4 w-4 mr-2" />
+                                                    Create File
+                                                </Button>
+                                                <Button
+                                                    onClick={() => handleCreateFile('src')}
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="w-full"
+                                                >
+                                                    <FolderIcon className="h-4 w-4 mr-2" />
+                                                    Create Folder
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <FileTree
+                                        files={files}
+                                        activeFile={activeFile}
+                                        onFileSelect={handleFileSelect}
+                                        onCreateFile={handleCreateFile}
+                                        onDeleteFile={handleDeleteFile}
+                                        readOnly={readOnly}
+                                    />
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -743,16 +725,31 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                             style={{ height: outputHeight, minHeight: 200, maxHeight: 600 }}
                         >
                             <div className="h-full flex">
-                                <div className="flex-1 p-4">
-                                    <OutputWindow outputDetails={outputDetails} />
+                                {/* Output Section */}
+                                <div className="flex-1 flex flex-col">
+                                    <div className="p-4 border-b border-gray-200">
+                                        <h3 className="text-sm font-medium text-gray-900">Output</h3>
+                                    </div>
+                                    <div className="flex-1 p-4">
+                                        <OutputWindow outputDetails={outputDetails} />
+                                    </div>
                                 </div>
 
+                                {/* Input Section */}
                                 {!readOnly && (
-                                    <div className="w-80 border-l border-gray-200 p-4">
-                                        <CustomInput
-                                            customInput={customInput}
-                                            setCustomInput={setCustomInput}
-                                        />
+                                    <div className="w-80 border-l border-gray-200 flex flex-col">
+                                        <div className="p-4 border-b border-gray-200">
+                                            <h3 className="text-sm font-medium text-gray-900">Input</h3>
+                                        </div>
+                                        <div className="flex-1 p-4 flex flex-col">
+                                            <div className="flex-1 flex flex-col justify-end">
+                                                <CustomInput
+                                                    customInput={customInput}
+                                                    setCustomInput={setCustomInput}
+                                                    className="h-full"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -766,18 +763,20 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                         <div className="h-full flex flex-col">
                             <div className="p-3 border-b border-gray-200 flex items-center justify-between">
                                 <h3 className="font-medium text-gray-900">Project Chat</h3>
-                                <button
+                                <Button
                                     onClick={() => setShowChat(false)}
-                                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                    variant="ghost"
+                                    size="xs"
+                                    className="p-1"
                                 >
                                     <XMarkIcon className="h-4 w-4" />
-                                </button>
+                                </Button>
                             </div>
                             <ChatInterface projectId={projectId} />
                         </div>
                     </div>
                 )}
-            </div>
+            </main>
 
             {/* Status Bar */}
             <div className="bg-gray-800 text-white px-4 py-1 text-xs flex items-center justify-between">

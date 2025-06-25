@@ -6,7 +6,6 @@ import { SocketProvider } from './contexts/SocketContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginCallback from './components/auth/LoginCallback';
 import Login from './components/auth/LoginPage';
-import Editor from './components/Editor';
 import ProjectDashboard from './components/projects/ProjectDashboard';
 import CollaborativeEditor from './components/editor/CollaborativeEditor';
 import SettingsPage from './components/settings/SettingsPage';
@@ -56,16 +55,6 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ProjectDashboard />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Legacy Editor Route - Redirects to standalone editor (Protected) */}
-              <Route
-                path="/editor"
-                element={
-                  <ProtectedRoute>
-                    <Editor />
                   </ProtectedRoute>
                 }
               />
