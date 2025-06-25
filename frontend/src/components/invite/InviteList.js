@@ -14,7 +14,7 @@ const InviteList = ({ projectId }) => {
     const fetchInvites = async () => {
         try {
             const response = await inviteService.getProjectInvites(projectId);
-            setInvites(response.data);
+            setInvites(response);
         } catch (error) {
             console.error('Failed to fetch invites:', error);
         } finally {

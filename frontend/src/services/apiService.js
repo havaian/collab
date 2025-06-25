@@ -376,6 +376,16 @@ class ApiService {
         }
     }
 
+    async getPendingInvites() {
+        try {
+            const response = await this.get('/invite/user');
+            return response;
+        } catch (error) {
+            console.error('Failed to get pending invites:', error);
+            throw error;
+        }
+    }
+
     // Error handling
     handleError(error) {
         const errorResponse = {

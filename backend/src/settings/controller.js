@@ -1,46 +1,53 @@
-// src/settings/controller.js
-const Settings = require('./model');
-const crypto = require('crypto');
+const settingsService = require('./service');
 
 class SettingsController {
     async getSettings(req, res) {
         try {
-            let settings = await Settings.findOne({ userId: req.user.id });
-            if (!settings) {
-                settings = new Settings({ userId: req.user.id });
-                await settings.save();
-            }
+            const settings = await settingsService.getUserSettings(req.user.id);
 
-            // Don't send encrypted API keys
-            const settingsObj = settings.toObject();
-            if (settingsObj.apiKeys.openai) {
-                settingsObj.apiKeys.openai = '***hidden***';
-            }
-
-            res.json({ success: true, data: settingsObj });
+            // Fix: Ensure we return the exact structure the frontend expects
+            res.json({
+                success: true,
+                data: settings // Frontend expects response.data directly
+            });
         } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
+            console.error('Failed to get settings:', error);
+
+            // Return default settings structure on error
+            const defaultSettings = {
+                preferences: {
+                    theme: 'dark',
+                    language: 'javascript',
+                    fontSize: 14,
+                    autoSave: true,
+                    notifications: true,
+                    tabSize: 2,
+                    wordWrap: true
+                },
+                apiKeys: {
+                    openai: ''
+                },
+                privacy: {
+                    profilePublic: true,
+                    showEmail: false,
+                    allowInvites: true
+                }
+            };
+
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                data: defaultSettings
+            });
         }
     }
 
     async updateSettings(req, res) {
         try {
-            const updates = req.body;
-
-            // Encrypt API keys if provided
-            if (updates.apiKeys?.openai && updates.apiKeys.openai !== '***hidden***') {
-                const cipher = crypto.createCipher('aes256', process.env.ENCRYPTION_KEY);
-                updates.apiKeys.openai = cipher.update(updates.apiKeys.openai, 'utf8', 'hex') + cipher.final('hex');
-            }
-
-            const settings = await Settings.findOneAndUpdate(
-                { userId: req.user.id },
-                { $set: updates, updatedAt: new Date() },
-                { new: true, upsert: true }
-            );
-
+            const settings = await settingsService.updateUserSettings(req.user.id, req.body);
             res.json({ success: true, data: settings });
         } catch (error) {
+            console.error('Failed to update settings:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     }

@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
-    accessToken: {
+    githubAccessToken: {
         type: String,
         // Will be encrypted before saving
     },
@@ -35,23 +35,31 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    // Add settings field for the settings service
     settings: {
-        theme: {
-            type: String,
-            default: 'oceanic-next'
+        preferences: {
+            theme: { type: String, default: 'dark' },
+            language: { type: String, default: 'javascript' },
+            fontSize: { type: Number, default: 14 },
+            autoSave: { type: Boolean, default: true },
+            notifications: { type: Boolean, default: true },
+            tabSize: { type: Number, default: 2 },
+            wordWrap: { type: Boolean, default: true }
         },
-        language: {
-            type: String,
-            default: 'javascript'
+        apiKeys: {
+            openai: { type: String, default: '' }
         },
-        notifications: {
-            type: Boolean,
-            default: true
+        privacy: {
+            profilePublic: { type: Boolean, default: true },
+            showEmail: { type: Boolean, default: false },
+            allowInvites: { type: Boolean, default: true }
         }
     },
+    // Profile fields
     bio: { type: String, maxlength: 500 },
     location: { type: String, maxlength: 100 },
-    website: { type: String, maxlength: 200 }
+    website: { type: String, maxlength: 200 },
+    displayName: { type: String, maxlength: 100 }
 }, {
     timestamps: true
 });

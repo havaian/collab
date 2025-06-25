@@ -15,7 +15,7 @@ const ChatInterface = ({ projectId, onSendMessage }) => {
         try {
             // Placeholder for API call
             // const response = await apiService.getChatHistory(projectId);
-            // setMessages(response.data);
+            // setMessages(response);
             setMessages([
                 {
                     id: 1,
