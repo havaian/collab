@@ -300,6 +300,16 @@ class ApiService {
         }
     }
 
+    async getProjectFiles(projectId) {
+        try {
+            const response = await this.client.get(`/files/project/${projectId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch project:', error);
+            throw this.handleError(error);
+        }
+    }
+
     async updateProject(projectId, projectData) {
         try {
             const response = await this.client.put(`/projects/${projectId}`, projectData);
