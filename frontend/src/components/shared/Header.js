@@ -169,7 +169,7 @@ const Header = ({
                                     </div>
 
                                     {/* Menu Items */}
-                                    <div className="py-2">
+                                    <div className="pt-2">
                                         {userMenuItems.map((item) => {
                                             const IconComponent = item.icon;
                                             return (
@@ -192,7 +192,7 @@ const Header = ({
                                     </div>
 
                                     {/* Logout */}
-                                    <div className="border-t border-gray-100 pt-2">
+                                    <div>
                                         <button
                                             onClick={() => {
                                                 handleLogout();

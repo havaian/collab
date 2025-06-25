@@ -504,14 +504,14 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                         </button>
 
                         {showMenu && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onProjectClick(project._id);
                                         setShowMenu(false);
                                     }}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-200 flex items-center space-x-2 text-sm"
                                 >
                                     <FolderIcon className="h-4 w-4 text-gray-400" />
                                     <span>Open Project</span>
@@ -523,7 +523,7 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                                         setShowInviteModal(true);
                                         setShowMenu(false);
                                     }}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-200 flex items-center space-x-2 text-sm"
                                 >
                                     <EnvelopeIcon className="h-4 w-4 text-gray-400" />
                                     <span>Invite Collaborator</span>
@@ -536,7 +536,7 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                                             navigate('/github');
                                             setShowMenu(false);
                                         }}
-                                        className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                        className="w-full px-4 py-2 text-left hover:bg-gray-200 flex items-center space-x-2 text-sm"
                                     >
                                         <CodeBracketSquareIcon className="h-4 w-4 text-gray-400" />
                                         <span>GitHub Settings</span>
@@ -549,13 +549,11 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                                         // Open project settings
                                         setShowMenu(false);
                                     }}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-200 flex items-center space-x-2 text-sm"
                                 >
                                     <Cog6ToothIcon className="h-4 w-4 text-gray-400" />
                                     <span>Project Settings</span>
                                 </button>
-
-                                <div className="border-t border-gray-100 my-1"></div>
 
                                 <button
                                     onClick={(e) => {
@@ -563,7 +561,7 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                                         onDeleteProject(project._id, project.name);
                                         setShowMenu(false);
                                     }}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm text-red-600"
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-200 flex items-center space-x-2 text-sm text-red-600"
                                 >
                                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
