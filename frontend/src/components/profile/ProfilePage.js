@@ -13,7 +13,7 @@ import {
     CalendarIcon,
     FolderIcon,
     UsersIcon,
-    CodeBracketIcon,
+    CodeBracketSquareIcon,
     CheckIcon,
     XMarkIcon,
     UserIcon,
@@ -246,10 +246,15 @@ const ProfilePage = () => {
                                                 <span>Joined {formatDate(profile.user.createdAt)}</span>
                                             </div>
                                             {profile.user.location && (
-                                                <div className="flex items-center space-x-1">
-                                                    <MapPinIcon className="h-4 w-4 text-gray-400" />
+                                                <a
+                                                    href={`https://www.google.com/maps/search/${profile.user.location}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center space-x-1 text-yellow-500 hover:text-yellow-600 transition-colors"
+                                                >
+                                                    <MapPinIcon className="h-4 w-4" />
                                                     <span>{profile.user.location}</span>
-                                                </div>
+                                                </a>
                                             )}
                                             {profile.user.website && (
                                                 <a
@@ -383,10 +388,10 @@ const ProfilePage = () => {
                                                             {project.description || 'No description provided'}
                                                         </p>
                                                         <div className="flex items-center justify-between text-xs text-gray-500">
-                                                            <span className="flex items-center space-x-1">
-                                                                <ClockIcon className="h-3 w-3" />
-                                                                <span>{formatRelativeTime(project.updatedAt || project.createdAt)}</span>
-                                                            </span>
+                                                            <div className="flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                                                                <CalendarIcon className="h-3 w-3" />
+                                                                <span className='pl-1'>{formatRelativeTime(project.updatedAt || project.createdAt)}</span>
+                                                            </div>
                                                             {project.settings?.language && (
                                                                 <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
                                                                     {project.settings.language}
@@ -400,7 +405,7 @@ const ProfilePage = () => {
                                     </div>
                                 ) : (
                                     <div className="text-center py-12">
-                                        <CodeBracketIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                                        <CodeBracketSquareIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                                         <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects yet</h3>
                                         <p className="text-gray-600 mb-6">
                                             {isOwnProfile ? "You haven't created any projects yet." : "This user hasn't created any public projects yet."}
@@ -447,7 +452,7 @@ const ProfilePage = () => {
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-2">
-                                            <CodeBracketIcon className="h-5 w-5 text-purple-600" />
+                                            <CodeBracketSquareIcon className="h-5 w-5 text-purple-600" />
                                             <span className="text-gray-700">Contributions</span>
                                         </div>
                                         <span className="text-2xl font-bold text-gray-900">

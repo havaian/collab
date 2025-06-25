@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import Button from '../shared/Button';
 import {
-    CodeBracketIcon,
+    CodeBracketSquareIcon,
     RocketLaunchIcon,
     UserGroupIcon,
     SparklesIcon,

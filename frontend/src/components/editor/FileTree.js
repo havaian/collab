@@ -6,7 +6,7 @@ import {
     FolderIcon,
     FolderOpenIcon,
     DocumentIcon,
-    CodeBracketIcon,
+    CodeBracketSquareIcon,
     PlusIcon,
     TrashIcon,
     PencilIcon,
@@ -233,7 +233,7 @@ const FileTree = ({ projectId, onFileSelect, selectedFile, readOnly = false }) =
         const codeExtensions = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'go', 'rs'];
 
         if (codeExtensions.includes(extension)) {
-            return <CodeBracketIcon className="w-4 h-4 text-green-500" />;
+            return <CodeBracketSquareIcon className="w-4 h-4 text-green-500" />;
         }
 
         return <DocumentIcon className="w-4 h-4 text-gray-500" />;

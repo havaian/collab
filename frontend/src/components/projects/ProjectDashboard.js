@@ -463,13 +463,15 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
     };
 
     return (
-        <div className="bg-white rounded-lg border-2 border-gray-900 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:border-black transition-all duration-200 cursor-pointer">
+        <div 
+            className="bg-white rounded-lg border-2 border-gray-900 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:border-black transition-all duration-200 cursor-pointer"
+            onClick={() => onProjectClick(project._id)}
+        >
             <div className="p-6">
                 {/* Header with title and menu */}
                 <div className="flex items-start justify-between mb-3">
                     <div
                         className="flex items-center space-x-2 flex-1"
-                        onClick={() => onProjectClick(project._id)}
                     >
                         <span className="text-lg">{getLanguageIcon(project.settings?.language)}</span>
                         <h3 className="text-lg font-semibold text-gray-900 truncate">

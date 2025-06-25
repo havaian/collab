@@ -11,7 +11,6 @@ import {
     ArrowPathIcon,
     StarIcon,
     EyeIcon,
-    CodeBracketIcon,
     CalendarIcon,
     LinkIcon,
     CheckCircleIcon,
@@ -195,7 +194,7 @@ const GitHubIntegration = ({ projectId, onImport }) => {
                             </div>
                             <div className="bg-purple-50 rounded-lg p-4">
                                 <div className="flex items-center space-x-2 mb-2">
-                                    <CodeBracketIcon className="h-5 w-5 text-purple-600" />
+                                    <CodeBracketSquareIcon className="h-5 w-5 text-purple-600" />
                                     <span className="font-medium text-purple-900">Collaborate</span>
                                 </div>
                                 <p className="text-sm text-purple-600">
@@ -292,7 +291,7 @@ const GitHubIntegration = ({ projectId, onImport }) => {
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-2 mb-2">
-                                            <CodeBracketIcon className="h-5 w-5 text-gray-600" />
+                                            <CodeBracketSquareIcon className="h-5 w-5 text-gray-600" />
                                             <h3 className="text-lg font-semibold text-gray-900 truncate">
                                                 {repo.name}
                                             </h3>
