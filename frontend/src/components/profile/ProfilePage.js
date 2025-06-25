@@ -356,15 +356,6 @@ const ProfilePage = () => {
                             <div className="bg-white rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] border-2 border-gray-900 p-8">
                                 <div className="flex items-center justify-between mb-6">
                                     <h2 className="text-xl font-semibold text-gray-900">Projects</h2>
-                                    {profile.projects && profile.projects.length > 6 && (
-                                        <Button
-                                            variant="ghost"
-                                            onClick={() => {/* TODO: Navigate to all projects */ }}
-                                            className="text-sm text-blue-600 hover:text-blue-800"
-                                        >
-                                            View all ({profile.projects.length})
-                                        </Button>
-                                    )}
                                 </div>
 
                                 {profile.projects && profile.projects.length > 0 ? (

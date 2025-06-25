@@ -86,7 +86,7 @@ const Header = ({
                                 className="flex items-center space-x-2"
                             >
                                 <ArrowLeftIcon className="h-4 w-4" />
-                                <span className="hidden md:inline">Back</span>
+                                <span className="hidden md:inline">Dashboard</span>
                             </Button>
                         )}
 

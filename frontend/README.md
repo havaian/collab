@@ -1,6 +1,8 @@
-# CodeRush - Compile and Execute code in 40+ languages
+# GPT-Collab
 
-## Features: 
+## Features:
+- Collaborate with your friends & colleagues to develop applications in real-time.
+- Use built-in ChatGPT to support your development with insights from world's best AI model.
 - Compile and execute code in 40+ programming languages.
 - Switch themes from a list of available themes.
 

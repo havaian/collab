@@ -449,6 +449,19 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
         }
     };
 
+    const formatRelativeTime = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+        if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+
+        return formatDate(dateString);
+    };
+
     return (
         <div className="bg-white rounded-lg border-2 border-gray-900 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:border-black transition-all duration-200 cursor-pointer">
             <div className="p-6">
@@ -609,10 +622,10 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                 )}
 
                 {/* Footer */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+                    <div className="flex items-center px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
                         <CalendarIcon className="h-3 w-3" />
-                        <span>Created {formatDate(project.updatedAt)}</span>
+                        <span className='pl-1'>{formatRelativeTime(project.updatedAt || project.createdAt)}</span>
                     </div>
                     <div className="flex items-center space-x-3">
                         {project.stats?.collaboratorCount > 0 && (
@@ -743,6 +756,19 @@ const InviteCollaboratorModal = ({ projectName, onInvite, onClose }) => {
 
 // Public Project Card Component
 const PublicProjectCard = ({ project, onProjectClick, formatDate, getLanguageIcon }) => {
+    const formatRelativeTime = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+        if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+
+        return formatDate(dateString);
+    };
+
     return (
         <div
             className="bg-white rounded-lg border-2 border-gray-900 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:border-black transition-all duration-200 cursor-pointer"
@@ -761,13 +787,13 @@ const PublicProjectCard = ({ project, onProjectClick, formatDate, getLanguageIco
                     {project.description || 'No description provided'}
                 </p>
 
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>by {project.owner?.username}</span>
-                    <div className="flex items-center space-x-2">
-                        <span>{project.settings?.language}</span>
-                        <span>•</span>
-                        <span>{formatDate(project.createdAt)}</span>
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-2">
+                    <div className="flex items-center px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
+                        <CalendarIcon className="h-3 w-3" />
+                        <span className='pl-1'>{formatRelativeTime(project.updatedAt || project.createdAt)}</span>
                     </div>
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">by {project.owner?.username}</span>
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{project.settings?.language}</span>
                 </div>
             </div>
         </div>
