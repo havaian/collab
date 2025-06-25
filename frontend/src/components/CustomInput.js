@@ -9,7 +9,7 @@ const CustomInput = ({ customInput, setCustomInput }) => {
         rows="5"
         value={customInput}
         onChange={(e) => setCustomInput(e.target.value)}
-        placeholder={`Custom input`}
+        placeholder={`Write here...`}
         className={classnames(
           "w-full h-56 bg-[#1e293b] rounded-md text-white font-normal text-sm overflow-y-auto px-4 py-2"
         )}

@@ -728,7 +728,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                                 {/* Output Section */}
                                 <div className="flex-1 flex flex-col">
                                     <div className="p-4 border-b border-gray-200">
-                                        <h3 className="text-sm font-medium text-gray-900">Output</h3>
+                                        <h3 className="text-sm font-medium text-gray-900">Output window</h3>
                                     </div>
                                     <div className="flex-1 p-4">
                                         <OutputWindow outputDetails={outputDetails} />
@@ -739,7 +739,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                                 {!readOnly && (
                                     <div className="w-80 border-l border-gray-200 flex flex-col">
                                         <div className="p-4 border-b border-gray-200">
-                                            <h3 className="text-sm font-medium text-gray-900">Input</h3>
+                                            <h3 className="text-sm font-medium text-gray-900">Custom input</h3>
                                         </div>
                                         <div className="flex-1 p-4 flex flex-col">
                                             <div className="flex-1 flex flex-col justify-end">
