@@ -270,7 +270,7 @@ const ProjectDashboard = () => {
                                     placeholder="Search projects..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                                    className="pl-10 pr-4 py-2 w-full bg-white text-black border-2 border-black shadow-[5px_5px_0px_0px_rgba(0,0,0)] hover:shadow-none hover:border-black focus:outline-none focus:shadow-none focus:border-black rounded-md transition-all duration-200"
                                 />
                             </div>
 
@@ -278,7 +278,7 @@ const ProjectDashboard = () => {
                                 <select
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
-                                    className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                    className="bg-white text-black border-2 border-black shadow-[5px_5px_0px_0px_rgba(0,0,0)] hover:shadow-none hover:border-black focus:outline-none focus:shadow-none focus:border-black rounded-md px-3 py-2 cursor-pointer transition-all duration-200"
                                 >
                                     <option value="createdAt">Recently Created</option>
                                     <option value="updatedAt">Recently Updated</option>
