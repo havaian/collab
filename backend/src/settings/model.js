@@ -10,9 +10,6 @@ const settingsSchema = new mongoose.Schema({
         autoSave: { type: Boolean, default: true },
         notifications: { type: Boolean, default: true }
     },
-    apiKeys: {
-        openai: { type: String, default: '' }
-    },
     privacy: {
         profilePublic: { type: Boolean, default: true },
         showEmail: { type: Boolean, default: false }

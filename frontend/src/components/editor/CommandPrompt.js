@@ -1,7 +1,7 @@
 import React from "react";
-import { classnames } from "../utils/general";
+import { classnames } from "../../utils/general";
 
-const CustomInput = ({ customInput, setCustomInput }) => {
+const CommandPrompt = ({ customInput, setCustomInput }) => {
   return (
     <>
       {" "}
@@ -11,11 +11,11 @@ const CustomInput = ({ customInput, setCustomInput }) => {
         onChange={(e) => setCustomInput(e.target.value)}
         placeholder={`Write here...`}
         className={classnames(
-          "w-full h-56 bg-[#1e293b] rounded-md text-white font-normal text-sm overflow-y-auto px-4 py-2"
+          "w-full h-56 bg-[#1e293b] rounded-md text-white font-normal text-sm overflow-y-auto px-4 py-2 resize-none"
         )}
       ></textarea>
     </>
   );
 };
 
-export default CustomInput;
+export default CommandPrompt;

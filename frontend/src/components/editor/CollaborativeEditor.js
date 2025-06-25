@@ -4,9 +4,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
-import CodeEditorWindow from '../CodeEditorWindow';
-import OutputWindow from '../OutputWindow';
-import CustomInput from '../CustomInput';
+import CodeEditorWindow from './CodeEditorWindow';
+import OutputWindow from './OutputWindow';
+import CommandPrompt from './CommandPrompt';
 import ChatInterface from '../chat/ChatInterface';
 import FileTree from './FileTree';
 import CollaboratorCursors from './CollaboratorCursors';
@@ -721,7 +721,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                     {/* Output Panel */}
                     {showOutput && (
                         <div
-                            className="border-t border-gray-200 bg-white resize-y overflow-hidden"
+                            className="border-t border-gray-200 bg-white overflow-hidden"
                             style={{ height: outputHeight, minHeight: 200, maxHeight: 600 }}
                         >
                             <div className="h-full flex">
@@ -739,11 +739,11 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                                 {!readOnly && (
                                     <div className="w-80 border-l border-gray-200 flex flex-col">
                                         <div className="p-4 border-b border-gray-200">
-                                            <h3 className="text-sm font-medium text-gray-900">Custom input</h3>
+                                            <h3 className="text-sm font-medium text-gray-900">Command prompt</h3>
                                         </div>
                                         <div className="flex-1 p-4 flex flex-col">
                                             <div className="flex-1 flex flex-col justify-end">
-                                                <CustomInput
+                                                <CommandPrompt
                                                     customInput={customInput}
                                                     setCustomInput={setCustomInput}
                                                     className="h-full"
