@@ -8,7 +8,7 @@ import Button from '../shared/Button';
 import {
     Cog6ToothIcon,
     PaintBrushIcon,
-    CodeBracketIcon,
+    CodeBracketSquareIcon,
     BellIcon,
     ShieldCheckIcon,
     ArrowPathIcon,
@@ -214,8 +214,8 @@ const SettingsPage = () => {
                         {/* Editor Preferences */}
                         <div className="bg-white rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] border-2 border-gray-900 p-8">
                             <div className="flex items-center space-x-3 mb-6">
-                                <div className="bg-blue-100 p-2 rounded-lg">
-                                    <CodeBracketIcon className="h-6 w-6 text-blue-600" />
+                                <div className="bg-purple-100 p-2 rounded-lg">
+                                    <CodeBracketSquareIcon className="h-6 w-6 text-purple-600" />
                                 </div>
                                 <h2 className="text-xl font-semibold text-gray-900">Editor Preferences</h2>
                             </div>
@@ -226,7 +226,7 @@ const SettingsPage = () => {
                                     <select
                                         value={settings.preferences.theme}
                                         onChange={(e) => updateSetting('preferences.theme', e.target.value)}
-                                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                                     >
                                         <option value="light">Light</option>
                                         <option value="dark">Dark</option>
@@ -241,7 +241,7 @@ const SettingsPage = () => {
                                     <select
                                         value={settings.preferences.language}
                                         onChange={(e) => updateSetting('preferences.language', e.target.value)}
-                                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                                     >
                                         <option value="javascript">JavaScript</option>
                                         <option value="typescript">TypeScript</option>
@@ -264,7 +264,7 @@ const SettingsPage = () => {
                                         max="24"
                                         value={settings.preferences.fontSize}
                                         onChange={(e) => updateSetting('preferences.fontSize', parseInt(e.target.value))}
-                                        className="w-full"
+                                        className="w-full cursor-pointer"
                                     />
                                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                                         <span>10px</span>
@@ -278,7 +278,7 @@ const SettingsPage = () => {
                                     <select
                                         value={settings.preferences.tabSize}
                                         onChange={(e) => updateSetting('preferences.tabSize', parseInt(e.target.value))}
-                                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                                     >
                                         <option value={2}>2 spaces</option>
                                         <option value={4}>4 spaces</option>
@@ -288,7 +288,7 @@ const SettingsPage = () => {
                             </div>
 
                             <div className="mt-6 space-y-4">
-                                <label className="flex items-center space-x-3">
+                                <label className="flex items-center space-x-3 cursor-pointer w-fit">
                                     <input
                                         type="checkbox"
                                         checked={settings.preferences.autoSave}
@@ -298,7 +298,7 @@ const SettingsPage = () => {
                                     <span className="text-sm text-gray-700">Enable auto-save</span>
                                 </label>
 
-                                <label className="flex items-center space-x-3">
+                                <label className="flex items-center space-x-3 cursor-pointer w-fit">
                                     <input
                                         type="checkbox"
                                         checked={settings.preferences.wordWrap}
@@ -308,7 +308,7 @@ const SettingsPage = () => {
                                     <span className="text-sm text-gray-700">Enable word wrap</span>
                                 </label>
 
-                                <label className="flex items-center space-x-3">
+                                <label className="flex items-center space-x-3 cursor-pointer w-fit">
                                     <input
                                         type="checkbox"
                                         checked={settings.preferences.notifications}
@@ -323,8 +323,8 @@ const SettingsPage = () => {
                         {/* API Keys */}
                         <div className="bg-white rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] border-2 border-gray-900 p-8">
                             <div className="flex items-center space-x-3 mb-6">
-                                <div className="bg-purple-100 p-2 rounded-lg">
-                                    <KeyIcon className="h-6 w-6 text-purple-600" />
+                                <div className="bg-red-100 p-2 rounded-lg">
+                                    <KeyIcon className="h-6 w-6 text-red-600" />
                                 </div>
                                 <h2 className="text-xl font-semibold text-gray-900">API Keys</h2>
                             </div>
@@ -369,7 +369,7 @@ const SettingsPage = () => {
                             </div>
 
                             <div className="space-y-4">
-                                <label className="flex flex-row-reverse text-left items-start justify-between space-x-3">
+                                <label className="flex flex-row-reverse text-left items-start justify-between space-x-3 cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={settings.privacy.profilePublic}
@@ -384,7 +384,7 @@ const SettingsPage = () => {
                                     </div>
                                 </label>
 
-                                <label className="flex flex-row-reverse text-left items-start justify-between space-x-3">
+                                <label className="flex flex-row-reverse text-left items-start justify-between space-x-3 cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={settings.privacy.showEmail}
@@ -399,7 +399,7 @@ const SettingsPage = () => {
                                     </div>
                                 </label>
 
-                                <label className="flex flex-row-reverse text-left items-start justify-between space-x-3">
+                                <label className="flex flex-row-reverse text-left items-start justify-between space-x-3 cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={settings.privacy.allowInvites}
