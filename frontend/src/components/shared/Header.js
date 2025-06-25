@@ -148,7 +148,7 @@ const Header = ({
 
                             {/* Dropdown Menu */}
                             {showUserMenu && (
-                                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 pt-2 z-50">
                                     {/* User Info Header */}
                                     <div className="px-4 py-3 border-b border-gray-100">
                                         <div className="flex items-center space-x-3">
@@ -179,7 +179,7 @@ const Header = ({
                                                         navigate(item.path);
                                                         setShowUserMenu(false);
                                                     }}
-                                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
+                                                    className="w-full px-6 py-2 text-left hover:bg-gray-200 flex items-center space-x-3 transition-colors"
                                                 >
                                                     <IconComponent className="h-4 w-4 text-gray-400" />
                                                     <div>
@@ -198,7 +198,7 @@ const Header = ({
                                                 handleLogout();
                                                 setShowUserMenu(false);
                                             }}
-                                            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 text-red-600 hover:text-red-700 transition-colors"
+                                            className="w-full px-6 py-4 text-left hover:bg-gray-200 flex items-center space-x-3 text-red-600 hover:text-red-700 transition-colors"
                                         >
                                             <ArrowRightOnRectangleIcon className="h-4 w-4" />
                                             <span className="text-sm font-medium">Sign out</span>

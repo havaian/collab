@@ -31,7 +31,7 @@ const ProjectDashboard = () => {
     const [showImportModal, setShowImportModal] = useState(false);
     const [activeTab, setActiveTab] = useState('my-projects');
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortBy, setSortBy] = useState('updatedAt');
+    const [sortBy, setSortBy] = useState('createdAt');
     const [newProject, setNewProject] = useState({
         name: '',
         description: '',
@@ -280,8 +280,8 @@ const ProjectDashboard = () => {
                                     onChange={(e) => setSortBy(e.target.value)}
                                     className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                                 >
-                                    <option value="updatedAt">Recently Updated</option>
                                     <option value="createdAt">Recently Created</option>
+                                    <option value="updatedAt">Recently Updated</option>
                                     <option value="name">Name A-Z</option>
                                 </select>
                             )}
@@ -291,9 +291,9 @@ const ProjectDashboard = () => {
                         {activeTab === 'my-projects' && (
                             <div className="flex space-x-3 w-full md:w-auto">
                                 <Button
-                                    variant="secondary"
+                                    variant="primary"
                                     onClick={() => setShowImportModal(true)}
-                                    className="flex items-center space-x-2 flex-1 md:flex-initial"
+                                    className="flex items-center bg-white space-x-2 flex-1 md:flex-initial"
                                 >
                                     <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -304,7 +304,7 @@ const ProjectDashboard = () => {
                                 <Button
                                     variant="primary"
                                     onClick={() => setShowCreateModal(true)}
-                                    className="flex items-center space-x-2 flex-1 md:flex-initial"
+                                    className="flex items-center bg-white    space-x-2 flex-1 md:flex-initial"
                                 >
                                     <PlusIcon className="h-4 w-4" />
                                     <span>New Project</span>
