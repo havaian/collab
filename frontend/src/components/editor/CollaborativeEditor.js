@@ -11,6 +11,7 @@ import ChatInterface from '../chat/ChatInterface';
 import CollaboratorCursors from './CollaboratorCursors';
 import Header from '../shared/Header';
 import Button from '../shared/Button';
+import FileTree from './FileTree';
 import { toast } from 'react-toastify';
 import {
     ChatBubbleLeftIcon,
@@ -36,12 +37,10 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
     // Project and file state
     const [project, setProject] = useState(null);
-    const [files, setFiles] = useState([]);
     const [activeFile, setActiveFile] = useState(null);
     const [code, setCode] = useState('');
     const [language, setLanguage] = useState('javascript');
     const [theme, setTheme] = useState('oceanic-next');
-    const [filesLoading, setFilesLoading] = useState(true);
     const [expandedFolders, setExpandedFolders] = useState(new Set());
     const [fileCache, setFileCache] = useState(new Map());
 
@@ -75,7 +74,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
     useEffect(() => {
         loadProject();
-        loadFiles();
     }, [projectId]);
 
     useEffect(() => {
@@ -137,33 +135,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         } catch (error) {
             toast.error('Failed to load project');
             navigate('/');
-        }
-    };
-
-    const loadFiles = async () => {
-        setFilesLoading(true);
-        try {
-            const response = await apiService.getProjectFiles(projectId);
-
-            // Transform _id to id for compatibility (if needed)
-            const transformedFiles = response.files.map(file => ({
-                ...file,
-                id: file._id || file.id // Ensure id property exists
-            }));
-
-            setFiles(transformedFiles);
-
-            // Auto-select first file if no file is active
-            if (transformedFiles.length > 0 && !activeFile) {
-                const firstFile = transformedFiles.find(f => f.type === 'file');
-                if (firstFile) {
-                    handleFileSelect(firstFile);
-                }
-            }
-        } catch (error) {
-            toast.error('Failed to load files');
-        } finally {
-            setFilesLoading(false);
         }
     };
 
@@ -445,11 +416,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                     }
                     return newCache;
                 });
-
-                // Update file in files list
-                setFiles(prev => prev.map(f =>
-                    f._id === currentFileId ? { ...f, content: code } : f
-                ));
             }
 
         } catch (error) {
@@ -510,50 +476,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         } catch (error) {
             toast.error('Failed to execute code');
             setProcessing(false);
-        }
-    };
-
-    const handleCreateFile = async (fileName, parentFolder = null) => {
-        try {
-            const fileData = {
-                name: fileName,
-                content: '',
-                parentFolder,
-                type: fileName.includes('.') ? 'file' : 'folder'
-            };
-
-            const response = await apiService.createFile(projectId, fileData);
-            await loadFiles();
-
-            // Auto-select new file if it's a file
-            if (response.file.type === 'file') {
-                handleFileSelect(response.file);
-            }
-
-            toast.success('File created successfully');
-        } catch (error) {
-            toast.error('Failed to create file');
-        }
-    };
-
-    const handleDeleteFile = async (file) => {
-        if (!window.confirm(`Are you sure you want to delete "${file.name}"?`)) {
-            return;
-        }
-
-        try {
-            await apiService.deleteFile(file._id);
-            await loadFiles();
-
-            // Clear active file if it was deleted
-            if (activeFile?._id === file._id) {
-                setActiveFile(null);
-                setCode('');
-            }
-
-            toast.success('File deleted successfully');
-        } catch (error) {
-            toast.error('Failed to delete file');
         }
     };
 

@@ -1,5 +1,6 @@
+// Complete GitHub Integration Component
 // src/components/github/GitHubIntegration.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import githubService from '../../services/githubService';
@@ -15,9 +16,12 @@ import {
     LinkIcon,
     CheckCircleIcon,
     ExclamationTriangleIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
+    ClockIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
+import io from 'socket.io-client';
 
 const GitHubIntegration = ({ projectId, onImport }) => {
     const navigate = useNavigate();
@@ -28,23 +32,139 @@ const GitHubIntegration = ({ projectId, onImport }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedLanguage, setSelectedLanguage] = useState('all');
     const [sortBy, setSortBy] = useState('updated');
+    const [importingRepos, setImportingRepos] = useState(new Map());
+    const [importProgress, setImportProgress] = useState(new Map());
+    const [error, setError] = useState(null);
+    const [pagination, setPagination] = useState({
+        page: 1,
+        perPage: 30,
+        total: 0,
+        hasMore: false
+    });
+    const socketRef = useRef(null);
 
     const isStandalone = !projectId && !onImport;
 
     useEffect(() => {
         fetchRepositories();
+        setupSocketConnection();
+
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+            }
+        };
     }, []);
 
-    const fetchRepositories = async () => {
+    const setupSocketConnection = () => {
+        // Initialize socket connection for real-time import updates
+        socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'https://collab.ytech.space', {
+            auth: {
+                token: localStorage.getItem('authToken')
+            }
+        });
+
+        // Listen for GitHub import events
+        socketRef.current.on('github:import-start', (data) => {
+            const { repositoryId, repositoryName } = data;
+            setImportProgress(prev => new Map(prev.set(repositoryId, {
+                step: 'starting',
+                message: `Starting import of ${repositoryName}...`,
+                progress: 10
+            })));
+        });
+
+        socketRef.current.on('github:import-progress', (data) => {
+            const { repositoryId, step, message, progress } = data;
+            setImportProgress(prev => new Map(prev.set(repositoryId, {
+                step,
+                message,
+                progress
+            })));
+        });
+
+        socketRef.current.on('github:import-complete', (data) => {
+            const { repositoryId, projectId: newProjectId, repositoryName } = data;
+            setImportProgress(prev => new Map(prev.set(repositoryId, {
+                step: 'complete',
+                message: `Successfully imported ${repositoryName}!`,
+                progress: 100
+            })));
+
+            toast.success(`Repository "${repositoryName}" imported successfully!`);
+
+            // Remove from importing state after a delay
+            setTimeout(() => {
+                setImportingRepos(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(repositoryId);
+                    return newMap;
+                });
+                setImportProgress(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(repositoryId);
+                    return newMap;
+                });
+
+                // Navigate to project if needed
+                if (onImport) {
+                    onImport({ projectId: newProjectId });
+                } else {
+                    navigate(`/project/${newProjectId}`);
+                }
+            }, 2000);
+        });
+
+        socketRef.current.on('github:import-error', (data) => {
+            const { repositoryId, error, repositoryName } = data;
+            setImportProgress(prev => new Map(prev.set(repositoryId, {
+                step: 'error',
+                message: `Failed to import ${repositoryName}: ${error}`,
+                progress: 0
+            })));
+
+            setImportingRepos(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(repositoryId);
+                return newMap;
+            });
+
+            toast.error(`Import failed: ${error}`);
+        });
+
+        // Connection status
+        socketRef.current.on('connect', () => {
+            console.log('Connected to socket server');
+        });
+
+        socketRef.current.on('disconnect', () => {
+            console.log('Disconnected from socket server');
+        });
+    };
+
+    const fetchRepositories = async (page = 1) => {
         setLoading(true);
+        setError(null);
         try {
-            const response = await githubService.getRepositories();
-            // Fix: Safely handle the response structure
-            setRepositories(response?.repositories || []);
+            const response = await githubService.getRepositories(page, pagination.perPage);
+            const newRepos = response?.repositories || [];
+
+            if (page === 1) {
+                setRepositories(newRepos);
+            } else {
+                setRepositories(prev => [...prev, ...newRepos]);
+            }
+
+            setPagination({
+                page,
+                perPage: pagination.perPage,
+                total: response?.total_count || 0,
+                hasMore: newRepos.length === pagination.perPage
+            });
         } catch (error) {
             console.error('Failed to fetch repositories:', error);
-            setRepositories([]); // Set empty array on error
-            toast.error('Failed to load GitHub repositories');
+            setError('Failed to load GitHub repositories. Please check your GitHub connection.');
+            setRepositories([]);
         } finally {
             setLoading(false);
         }
@@ -67,27 +187,67 @@ const GitHubIntegration = ({ projectId, onImport }) => {
     };
 
     const importRepository = async (repo) => {
-        setSyncing(true);
+        const repositoryId = repo.id.toString();
+
+        // Add to importing state immediately
+        setImportingRepos(prev => new Map(prev.set(repositoryId, {
+            name: repo.name,
+            url: repo.clone_url,
+            startTime: Date.now()
+        })));
+
+        setImportProgress(prev => new Map(prev.set(repositoryId, {
+            step: 'initializing',
+            message: 'Preparing to import repository...',
+            progress: 5
+        })));
+
         try {
+            // Start the import process
             const response = await githubService.importRepository(
                 repo.clone_url,
                 repo.name,
-                repo.description
+                repo.description,
+                repo.default_branch || 'main'
             );
-            toast.success(`Repository "${repo.name}" imported successfully!`);
 
-            if (onImport) {
-                onImport(response);
-            } else {
-                // Navigate to the new project
-                navigate(`/project/${response.projectId}`);
-            }
+            toast.info(`Import started for "${repo.name}". Please wait...`);
+
         } catch (error) {
             console.error('Import failed:', error);
-            toast.error('Failed to import repository');
-        } finally {
-            setSyncing(false);
+
+            // Remove from importing state
+            setImportingRepos(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(repositoryId);
+                return newMap;
+            });
+
+            setImportProgress(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(repositoryId);
+                return newMap;
+            });
+
+            toast.error(`Failed to start import: ${error.response?.data?.error || error.message}`);
         }
+    };
+
+    const cancelImport = (repositoryId) => {
+        // Remove from importing state
+        setImportingRepos(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(repositoryId);
+            return newMap;
+        });
+
+        setImportProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(repositoryId);
+            return newMap;
+        });
+
+        toast.info('Import cancelled');
     };
 
     const formatDate = (dateString) => {
@@ -109,15 +269,103 @@ const GitHubIntegration = ({ projectId, onImport }) => {
             PHP: 'bg-violet-100 text-violet-800',
             Ruby: 'bg-pink-100 text-pink-800',
             Go: 'bg-cyan-100 text-cyan-800',
-            Rust: 'bg-orange-100 text-orange-800'
+            Rust: 'bg-orange-100 text-orange-800',
+            HTML: 'bg-orange-100 text-orange-800',
+            CSS: 'bg-blue-100 text-blue-800',
+            Vue: 'bg-green-100 text-green-800',
+            React: 'bg-cyan-100 text-cyan-800'
         };
         return colors[language] || 'bg-gray-100 text-gray-800';
     };
 
+    const getProgressStepText = (step) => {
+        const steps = {
+            'initializing': 'Initializing import...',
+            'starting': 'Starting import process...',
+            'cloning': 'Cloning repository...',
+            'analyzing': 'Analyzing repository structure...',
+            'creating_project': 'Creating project...',
+            'importing_files': 'Importing files...',
+            'setting_permissions': 'Setting up permissions...',
+            'finalizing': 'Finalizing import...',
+            'complete': 'Import complete!',
+            'error': 'Import failed'
+        };
+        return steps[step] || 'Processing...';
+    };
+
+    const renderImportButton = (repo) => {
+        const repositoryId = repo.id.toString();
+        const isImporting = importingRepos.has(repositoryId);
+        const progress = importProgress.get(repositoryId);
+
+        if (isImporting && progress) {
+            return (
+                <div className="min-w-[200px]">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                            <span className="text-sm font-medium text-blue-600">
+                                {progress.step === 'error' ? 'Failed' : 'Importing...'}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => cancelImport(repositoryId)}
+                            className="text-gray-400 hover:text-gray-600"
+                            title="Cancel Import"
+                        >
+                            <XMarkIcon className="h-4 w-4" />
+                        </button>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                        <div
+                            className={`h-2 rounded-full transition-all duration-300 ${progress.step === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                                }`}
+                            style={{ width: `${progress.progress}%` }}
+                        ></div>
+                    </div>
+
+                    {/* Progress Message */}
+                    <p className={`text-xs ${progress.step === 'error' ? 'text-red-600' : 'text-gray-600'
+                        }`}>
+                        {progress.message}
+                    </p>
+
+                    {/* Estimated Time */}
+                    {progress.step !== 'error' && progress.step !== 'complete' && (
+                        <p className="text-xs text-gray-500 mt-1">
+                            This may take a few minutes for large repositories
+                        </p>
+                    )}
+                </div>
+            );
+        }
+
+        return (
+            <Button
+                variant="primary"
+                onClick={() => importRepository(repo)}
+                disabled={isImporting}
+                className="flex items-center space-x-2"
+            >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                <span>Import</span>
+            </Button>
+        );
+    };
+
+    // Get unique languages for filter
+    const availableLanguages = [...new Set(repositories
+        .map(repo => repo.language)
+        .filter(Boolean)
+    )].sort();
+
     const filteredAndSortedRepos = repositories
         .filter(repo => {
             const matchesSearch = repo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                repo.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                (repo.description && repo.description.toLowerCase().includes(searchTerm.toLowerCase()));
             const matchesLanguage = selectedLanguage === 'all' || repo.language === selectedLanguage;
             return matchesSearch && matchesLanguage;
         })
@@ -133,266 +381,269 @@ const GitHubIntegration = ({ projectId, onImport }) => {
             }
         });
 
-    const uniqueLanguages = [...new Set(repositories.map(repo => repo.language).filter(Boolean))];
+    return (
+        <div className="min-h-screen bg-gray-50">
+            {isStandalone && <Header />}
 
-    if (loading && repositories.length === 0) {
-        return (
-            <>
-                {isStandalone && (
-                    <Header
-                        title="GitHub Integration"
-                        subtitle="Import and sync your repositories"
-                        showBackButton={true}
-                        backPath="/"
-                    />
-                )}
-                <div className={`${isStandalone ? 'min-h-[85vh]' : 'h-96'} flex items-center justify-center ${isStandalone ? 'bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50' : ''}`}>
-                    <div className="flex flex-col items-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                        <p className="text-gray-600">Loading your GitHub repositories...</p>
-                    </div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Header */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                        GitHub Integration
+                    </h1>
+                    <p className="text-gray-600">
+                        Import repositories from your GitHub account to create new projects.
+                    </p>
                 </div>
-            </>
-        );
-    }
 
-    const content = (
-        <div className={`${isStandalone ? 'min-h-[85vh] bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8' : ''}`}>
-            <div className={`${isStandalone ? 'max-w-6xl mx-auto px-4 sm:px-6 lg:px-8' : ''} space-y-6`}>
-
-                {/* Header Section for Standalone */}
-                {isStandalone && (
-                    <div className="bg-white rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] border-2 border-gray-900 p-8">
-                        <div className="flex items-center text-left space-x-4 mb-4">
-                            <div className="bg-gray-900 p-3 rounded-full">
-                                <CodeBracketSquareIcon className="h-8 w-8 text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900">GitHub Integration</h1>
-                                <p className="text-gray-600">Import repositories and sync your projects with GitHub</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                            <div className="bg-blue-50 rounded-lg p-4">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <ArrowDownTrayIcon className="h-5 w-5 text-blue-600" />
-                                    <span className="font-medium text-blue-900">Import</span>
-                                </div>
-                                <p className="text-sm text-blue-600">
-                                    Import existing repositories as new projects
-                                </p>
-                            </div>
-                            <div className="bg-green-50 rounded-lg p-4">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <ArrowPathIcon className="h-5 w-5 text-green-600" />
-                                    <span className="font-medium text-green-900">Sync</span>
-                                </div>
-                                <p className="text-sm text-green-600">
-                                    Keep your projects in sync with GitHub
-                                </p>
-                            </div>
-                            <div className="bg-purple-50 rounded-lg p-4">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <CodeBracketSquareIcon className="h-5 w-5 text-purple-600" />
-                                    <span className="font-medium text-purple-900">Collaborate</span>
-                                </div>
-                                <p className="text-sm text-purple-600">
-                                    Work together on GitHub-backed projects
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Controls */}
-                <div className={`${isStandalone ? 'bg-white rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] border-2 border-gray-900' : 'bg-gray-50 rounded-lg border-2 border-gray-200'} p-6`}>
+                {/* Filters and Search */}
+                <div className="bg-white rounded-lg shadow p-6 mb-6">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-4">
-                        <div className="flex items-center space-x-4">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                                Your Repositories ({repositories.length})
-                            </h3>
-                            <Button
-                                onClick={fetchRepositories}
-                                disabled={loading}
-                                variant="ghost"
-                                className="flex items-center space-x-2"
-                            >
-                                <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                                <span className="text-sm">{loading ? 'Loading...' : 'Refresh'}</span>
-                            </Button>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                            {/* Search */}
+                        {/* Search */}
+                        <div className="flex-1 max-w-lg">
                             <div className="relative">
-                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input
                                     type="text"
                                     placeholder="Search repositories..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
+                        </div>
 
-                            {/* Language Filter */}
+                        {/* Filters */}
+                        <div className="flex space-x-4">
                             <select
                                 value={selectedLanguage}
                                 onChange={(e) => setSelectedLanguage(e.target.value)}
-                                className="px-2 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                             >
                                 <option value="all">All Languages</option>
-                                {uniqueLanguages.map(lang => (
+                                {availableLanguages.map(lang => (
                                     <option key={lang} value={lang}>{lang}</option>
                                 ))}
                             </select>
 
-                            {/* Sort */}
                             <select
                                 value={sortBy}
                                 onChange={(e) => setSortBy(e.target.value)}
-                                className="px-2 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                             >
                                 <option value="updated">Recently Updated</option>
-                                <option value="name">Name</option>
-                                <option value="stars">Stars</option>
+                                <option value="name">Name A-Z</option>
+                                <option value="stars">Most Stars</option>
                             </select>
+
+                            <Button
+                                variant="ghost"
+                                onClick={() => fetchRepositories(1)}
+                                disabled={loading}
+                                className="flex items-center space-x-2"
+                            >
+                                <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                <span>Refresh</span>
+                            </Button>
                         </div>
                     </div>
                 </div>
 
-                {/* Repositories List */}
-                {filteredAndSortedRepos.length === 0 ? (
-                    <div className={`${isStandalone ? 'bg-white rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] border-2 border-gray-900' : 'bg-gray-50 rounded-lg border-2 border-gray-200'} p-12 text-center`}>
-                        <CodeBracketSquareIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                            {repositories.length === 0 ? 'No repositories found' : 'No matching repositories'}
-                        </h3>
-                        <p className="text-gray-600 mb-6">
-                            {repositories.length === 0
-                                ? 'Connect your GitHub account to see your repositories here.'
-                                : 'Try adjusting your search or filter criteria.'
-                            }
+                {/* Content */}
+                {loading && repositories.length === 0 ? (
+                    <div className="flex justify-center items-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <span className="ml-2 text-gray-600">Loading repositories...</span>
+                    </div>
+                ) : error ? (
+                    <div className="text-center py-12">
+                        <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-red-400 mb-4" />
+                        <p className="text-gray-600 mb-4">{error}</p>
+                        <Button
+                            variant="primary"
+                            onClick={() => fetchRepositories(1)}
+                            className="flex items-center space-x-2 mx-auto"
+                        >
+                            <ArrowPathIcon className="h-4 w-4" />
+                            <span>Retry</span>
+                        </Button>
+                    </div>
+                ) : filteredAndSortedRepos.length === 0 ? (
+                    <div className="text-center py-12">
+                        <CodeBracketSquareIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-gray-600">
+                            {searchTerm || selectedLanguage !== 'all'
+                                ? 'No repositories match your search criteria.'
+                                : 'No repositories found.'}
                         </p>
-                        {repositories.length === 0 && (
-                            <Button onClick={fetchRepositories}>
-                                Connect GitHub
-                            </Button>
-                        )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {filteredAndSortedRepos.map(repo => (
-                            <div
-                                key={repo.id}
-                                className={`${isStandalone ? 'bg-white rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] border-2 border-gray-900 hover:shadow-none hover:translate-x-1 hover:translate-y-1' : 'bg-white rounded-lg border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50'} transition-all duration-200 p-6`}
-                            >
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="flex-1">
-                                        <div className="flex items-center space-x-2 mb-2">
-                                            <CodeBracketSquareIcon className="h-5 w-5 text-gray-600" />
-                                            <h3 className="text-lg font-semibold text-gray-900 truncate">
-                                                {repo.name}
-                                            </h3>
-                                            {repo.private && (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                    Private
-                                                </span>
+                    <>
+                        {/* Repository List */}
+                        <div className="space-y-4 mb-6">
+                            {filteredAndSortedRepos.map((repo) => (
+                                <div
+                                    key={repo.id}
+                                    className="bg-white border border-gray-200 rounded-lg p-6 hover:border-gray-300 transition-colors"
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1 min-w-0">
+                                            {/* Repository Header */}
+                                            <div className="flex items-center space-x-3 mb-3">
+                                                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                                    {repo.name}
+                                                </h3>
+
+                                                <div className="flex items-center space-x-2">
+                                                    {repo.private && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                            Private
+                                                        </span>
+                                                    )}
+                                                    {repo.language && (
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getLanguageColor(repo.language)}`}>
+                                                            {repo.language}
+                                                        </span>
+                                                    )}
+                                                    {repo.fork && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                                            Fork
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Description */}
+                                            {repo.description && (
+                                                <p className="text-gray-600 mb-3 line-clamp-2">
+                                                    {repo.description}
+                                                </p>
+                                            )}
+
+                                            {/* Repository Stats */}
+                                            <div className="flex items-center space-x-6 text-sm text-gray-500">
+                                                <div className="flex items-center space-x-1">
+                                                    <StarIcon className="h-4 w-4" />
+                                                    <span>{repo.stargazers_count.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex items-center space-x-1">
+                                                    <EyeIcon className="h-4 w-4" />
+                                                    <span>{repo.watchers_count.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex items-center space-x-1">
+                                                    <CodeBracketSquareIcon className="h-4 w-4" />
+                                                    <span>{repo.forks_count.toLocaleString()} forks</span>
+                                                </div>
+                                                <div className="flex items-center space-x-1">
+                                                    <CalendarIcon className="h-4 w-4" />
+                                                    <span>Updated {formatDate(repo.updated_at)}</span>
+                                                </div>
+                                                {repo.size && (
+                                                    <div className="flex items-center space-x-1">
+                                                        <span>{(repo.size / 1024).toFixed(1)} MB</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Topics/Tags */}
+                                            {repo.topics && repo.topics.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-3">
+                                                    {repo.topics.slice(0, 5).map(topic => (
+                                                        <span
+                                                            key={topic}
+                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700"
+                                                        >
+                                                            {topic}
+                                                        </span>
+                                                    ))}
+                                                    {repo.topics.length > 5 && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-700">
+                                                            +{repo.topics.length - 5} more
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
 
-                                        <p className="text-left text-gray-600 text-sm mb-3 line-clamp-2">
-                                            {repo.description || 'No description provided'}
-                                        </p>
-
-                                        <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
-                                            {repo.language && (
-                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getLanguageColor(repo.language)}`}>
-                                                    {repo.language}
-                                                </span>
-                                            )}
-                                            <div className="flex items-center space-x-1">
-                                                <StarIcon className="h-4 w-4" />
-                                                <span>{repo.stargazers_count}</span>
-                                            </div>
-                                            <div className="flex items-center space-x-1">
-                                                <CalendarIcon className="h-4 w-4" />
-                                                <span>{formatDate(repo.updated_at)}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center space-x-2">
-                                            <a
-                                                href={repo.html_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                                            >
-                                                <LinkIcon className="h-4 w-4 mr-1" />
-                                                View on GitHub
-                                            </a>
+                                        {/* Action Button */}
+                                        <div className="ml-6 flex-shrink-0">
+                                            {renderImportButton(repo)}
                                         </div>
                                     </div>
                                 </div>
+                            ))}
+                        </div>
 
-                                <div className="flex space-x-2 pt-4 border-t border-gray-200">
-                                    {projectId ? (
-                                        <Button
-                                            onClick={() => syncRepository(repo.clone_url)}
-                                            disabled={syncing}
-                                            className="flex-1 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
-                                        >
-                                            <ArrowPathIcon className="h-4 w-4" />
-                                            <span>{syncing ? 'Syncing...' : 'Sync'}</span>
-                                        </Button>
+                        {/* Load More Button */}
+                        {pagination.hasMore && (
+                            <div className="text-center">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => fetchRepositories(pagination.page + 1)}
+                                    disabled={loading}
+                                    className="flex items-center space-x-2 mx-auto"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500"></div>
+                                            <span>Loading...</span>
+                                        </>
                                     ) : (
-                                        <Button
-                                            variant="primary"
-                                            onClick={() => importRepository(repo)}
-                                            disabled={syncing}
-                                            className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-black hover:text-white"
-                                        >
-                                            <ArrowDownTrayIcon className="h-4 w-4" />
-                                            <span>{syncing ? 'Importing...' : 'Import'}</span>
-                                        </Button>
+                                        <span>Load More Repositories</span>
                                     )}
-                                </div>
+                                </Button>
                             </div>
-                        ))}
+                        )}
+                    </>
+                )}
+
+                {/* Active Imports Summary */}
+                {importingRepos.size > 0 && (
+                    <div className="fixed bottom-6 right-6 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-md">
+                        <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                            <ClockIcon className="h-4 w-4 mr-2" />
+                            Active Imports ({importingRepos.size})
+                        </h4>
+                        <div className="space-y-3 max-h-40 overflow-y-auto">
+                            {Array.from(importingRepos.entries()).map(([repoId, repoInfo]) => {
+                                const progress = importProgress.get(repoId);
+                                return (
+                                    <div key={repoId} className="text-sm">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="font-medium text-gray-900 truncate">
+                                                {repoInfo.name}
+                                            </span>
+                                            <button
+                                                onClick={() => cancelImport(repoId)}
+                                                className="text-gray-400 hover:text-gray-600 ml-2"
+                                            >
+                                                <XMarkIcon className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                        {progress && (
+                                            <>
+                                                <div className="w-full bg-gray-200 rounded-full h-1 mb-1">
+                                                    <div
+                                                        className={`h-1 rounded-full transition-all duration-300 ${progress.step === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                                                            }`}
+                                                        style={{ width: `${progress.progress}%` }}
+                                                    ></div>
+                                                </div>
+                                                <p className={`text-xs ${progress.step === 'error' ? 'text-red-600' : 'text-gray-600'
+                                                    }`}>
+                                                    {getProgressStepText(progress.step)}
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </div>
         </div>
     );
-
-    if (isStandalone) {
-        return (
-            <>
-                <Header
-                    title="GitHub Integration"
-                    subtitle={`${repositories.length} repositories available`}
-                    showBackButton={true}
-                    backPath="/"
-                    actions={[
-                        <Button
-                            key="refresh"
-                            variant="ghost"
-                            onClick={fetchRepositories}
-                            disabled={loading}
-                            className="flex items-center space-x-2"
-                        >
-                            <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                            <span className="text-sm">{loading ? 'Loading...' : 'Refresh'}</span>
-                        </Button>
-                    ]}
-                />
-                {content}
-            </>
-        );
-    }
-
-    return content;
 };
 
 export default GitHubIntegration;

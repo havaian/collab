@@ -5,20 +5,19 @@ class GitHubController {
         try {
             const { page = 1, per_page = 30 } = req.query;
             const repositories = await githubService.getUserRepositories(req.user.id, page, per_page);
-            
-            // Fix: Ensure we return the structure the frontend expects
-            res.json({ 
-                success: true, 
-                data: { 
-                    repositories: repositories || [] // Frontend expects response.data.repositories
-                } 
+
+            res.json({
+                success: true,
+                data: {
+                    repositories: repositories || []
+                }
             });
         } catch (error) {
             console.error('Failed to get repositories:', error);
-            res.status(500).json({ 
-                success: false, 
+            res.status(500).json({
+                success: false,
                 error: error.message,
-                data: { repositories: [] } // Return empty array on error
+                data: { repositories: [] }
             });
         }
     }
@@ -36,12 +35,46 @@ class GitHubController {
 
     async importRepository(req, res) {
         try {
+            // FIX: Proper destructuring and validation
             const { repositoryUrl, name, description, branch = 'main' } = req.body;
-            const project = await githubService.importRepository(repositoryUrl, name, description, branch, req.user.id);
-            res.status(201).json({ success: true, data: { projectId: project._id } });
+
+            // Add validation
+            if (!repositoryUrl) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Repository URL is required'
+                });
+            }
+
+            if (!name) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Project name is required'
+                });
+            }
+
+            // Pass individual parameters, not the whole body object
+            const project = await githubService.importRepository(
+                repositoryUrl,
+                name,
+                description,
+                branch,
+                req.user.id
+            );
+
+            res.status(201).json({
+                success: true,
+                data: {
+                    projectId: project._id,
+                    project: project
+                }
+            });
         } catch (error) {
             console.error('Failed to import repository:', error);
-            res.status(400).json({ success: false, error: error.message });
+            res.status(400).json({
+                success: false,
+                error: error.message
+            });
         }
     }
 }

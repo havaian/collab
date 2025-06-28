@@ -386,43 +386,127 @@ class ApiService {
         }
     }
 
-    async createFile(projectId, fileData) {
+    // File Operations
+    async createFile(fileData) {
         try {
-            const response = await this.client.post(`/projects/${projectId}/files`, fileData);
+            const response = await this.api.post(`/files/project/${fileData.projectId}`, {
+                name: fileData.name,
+                type: fileData.type || 'file',
+                content: fileData.content || '',
+                parentFolder: fileData.parentId || null
+            });
             return response.data;
         } catch (error) {
-            console.error('Failed to create file:', error);
-            throw this.handleError(error);
+            console.error('Create file error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to create file');
         }
     }
 
-    async getFile(fileId) {
+    async deleteFile(fileId, permanent = false) {
         try {
-            const response = await this.client.get(`/files/${fileId}`);
+            const response = await this.api.delete(`/files/${fileId}`, {
+                params: { permanent }
+            });
             return response.data;
         } catch (error) {
-            console.error('Failed to get file:', error);
-            throw this.handleError(error);
+            console.error('Delete file error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to delete file');
         }
     }
 
-    async updateFile(fileId, fileData) {
+    async renameFile(fileId, newName) {
         try {
-            const response = await this.client.put(`/files/${fileId}`, fileData);
+            const response = await this.api.put(`/files/${fileId}`, {
+                name: newName
+            });
             return response.data;
         } catch (error) {
-            console.error('Failed to update file:', error);
-            throw this.handleError(error);
+            console.error('Rename file error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to rename file');
         }
     }
 
-    async deleteFile(fileId) {
+    async moveFile(fileId, parentFolderId) {
         try {
-            const response = await this.client.delete(`/files/${fileId}`);
+            const response = await this.api.put(`/files/${fileId}/move`, {
+                parentFolder: parentFolderId
+            });
             return response.data;
         } catch (error) {
-            console.error('Failed to delete file:', error);
-            throw this.handleError(error);
+            console.error('Move file error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to move file');
+        }
+    }
+
+    async duplicateFile(fileId, newName) {
+        try {
+            const response = await this.api.post(`/files/${fileId}/duplicate`, {
+                name: newName
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Duplicate file error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to duplicate file');
+        }
+    }
+
+    async getFileContent(fileId) {
+        try {
+            const response = await this.api.get(`/files/${fileId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Get file content error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to load file content');
+        }
+    }
+
+    async updateFileContent(fileId, content, metadata = {}) {
+        try {
+            const response = await this.api.put(`/files/${fileId}`, {
+                content,
+                metadata
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Update file content error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to update file content');
+        }
+    }
+
+    // GitHub Operations
+    async getGitHubRepositories(page = 1, perPage = 30) {
+        try {
+            const response = await this.api.get('/github/repos', {
+                params: { page, per_page: perPage }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Get GitHub repositories error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to load GitHub repositories');
+        }
+    }
+
+    async importGitHubRepository(repositoryData) {
+        try {
+            const response = await this.api.post('/github/import', repositoryData);
+            return response.data;
+        } catch (error) {
+            console.error('Import GitHub repository error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to import repository');
+        }
+    }
+
+    async syncGitHubRepository(projectId, repositoryUrl, branch = 'main') {
+        try {
+            const response = await this.api.post('/github/sync', {
+                projectId,
+                repositoryUrl,
+                branch
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Sync GitHub repository error:', error);
+            throw new Error(error.response?.data?.error || 'Failed to sync repository');
         }
     }
 

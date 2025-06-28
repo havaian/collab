@@ -24,7 +24,6 @@ class GitHubService {
                 }
             });
 
-            console.log(response.data);
             return response.data || [];
         } catch (error) {
             console.error('GitHub API error:', error.response?.data || error.message);
@@ -63,6 +62,11 @@ class GitHubService {
 
     async importRepository(repositoryUrl, name, description, branch, userId) {
         const user = await User.findById(userId);
+        console.log(repositoryUrl,
+            name,
+            description,
+            branch
+        )
 
         // Create new project
         const project = new Project({

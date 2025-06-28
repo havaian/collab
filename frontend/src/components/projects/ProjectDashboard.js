@@ -3,10 +3,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
+import githubService from '../../services/githubService';
 import { toast } from 'react-toastify';
 import Header from '../shared/Header';
 import Button from '../shared/Button';
+import io from 'socket.io-client';
 import {
+    ArrowPathIcon,
+    StarIcon,
+    EyeIcon,
+    ArrowDownTrayIcon,
     PlusIcon,
     FolderIcon,
     GlobeAltIcon,
@@ -19,6 +25,7 @@ import {
     CodeBracketSquareIcon,
     EnvelopeIcon,
     UserIcon,
+    ClockIcon,
     XMarkIcon,
     UsersIcon
 } from '@heroicons/react/24/outline';
@@ -44,16 +51,144 @@ const ProjectDashboard = () => {
     const [pendingInvites, setPendingInvites] = useState([]);
     const [inviteCount, setInviteCount] = useState(0);
 
+    const [importingRepos, setImportingRepos] = useState(new Map());
+    const [importProgress, setImportProgress] = useState(new Map());
+    const socketRef = useRef(null);
+
     useEffect(() => {
         loadProjects();
         if (activeTab === 'explore') {
             loadPublicProjects();
         }
+        // ADD THIS: Setup socket connection for real-time updates
+        setupSocketConnection();
+
+        // ADD THIS: Cleanup socket on unmount
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+            }
+        };
     }, [activeTab, searchTerm, sortBy]);
 
     useEffect(() => {
         loadPendingInvites();
     }, []);
+
+    const setupSocketConnection = () => {
+        // Initialize socket connection for real-time import updates
+        socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'https://collab.ytech.space', {
+            auth: {
+                token: localStorage.getItem('authToken')
+            }
+        });
+
+        // Listen for GitHub import events
+        socketRef.current.on('github:import-start', (data) => {
+            const { repositoryId, repositoryName } = data;
+            setImportProgress(prev => new Map(prev.set(repositoryId, {
+                step: 'starting',
+                message: `Starting import of ${repositoryName}...`,
+                progress: 10
+            })));
+        });
+
+        socketRef.current.on('github:import-progress', (data) => {
+            const { repositoryId, step, message, progress } = data;
+            setImportProgress(prev => new Map(prev.set(repositoryId, {
+                step,
+                message,
+                progress
+            })));
+        });
+
+        socketRef.current.on('github:import-complete', (data) => {
+            const { repositoryId, projectId: newProjectId, repositoryName } = data;
+            setImportProgress(prev => new Map(prev.set(repositoryId, {
+                step: 'complete',
+                message: `Successfully imported ${repositoryName}!`,
+                progress: 100
+            })));
+
+            toast.success(`Repository "${repositoryName}" imported successfully!`);
+
+            // Remove from importing state after a delay and refresh projects
+            setTimeout(() => {
+                setImportingRepos(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(repositoryId);
+                    return newMap;
+                });
+                setImportProgress(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(repositoryId);
+                    return newMap;
+                });
+
+                // Refresh the projects list to show the new import
+                loadProjects();
+            }, 2000);
+        });
+
+        socketRef.current.on('github:import-error', (data) => {
+            const { repositoryId, error, repositoryName } = data;
+            setImportProgress(prev => new Map(prev.set(repositoryId, {
+                step: 'error',
+                message: `Failed to import ${repositoryName}: ${error}`,
+                progress: 0
+            })));
+
+            setImportingRepos(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(repositoryId);
+                return newMap;
+            });
+
+            toast.error(`Import failed: ${error}`);
+        });
+
+        // Connection status
+        socketRef.current.on('connect', () => {
+            console.log('Connected to socket server');
+        });
+
+        socketRef.current.on('disconnect', () => {
+            console.log('Disconnected from socket server');
+        });
+    };
+
+    const cancelImport = (repositoryId) => {
+        // Remove from importing state
+        setImportingRepos(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(repositoryId);
+            return newMap;
+        });
+
+        setImportProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(repositoryId);
+            return newMap;
+        });
+
+        toast.info('Import cancelled');
+    };
+
+    const getProgressStepText = (step) => {
+        const steps = {
+            'initializing': 'Initializing import...',
+            'starting': 'Starting import process...',
+            'cloning': 'Cloning repository...',
+            'analyzing': 'Analyzing repository structure...',
+            'creating_project': 'Creating project...',
+            'importing_files': 'Importing files...',
+            'setting_permissions': 'Setting up permissions...',
+            'finalizing': 'Finalizing import...',
+            'complete': 'Import complete!',
+            'error': 'Import failed'
+        };
+        return steps[step] || 'Processing...';
+    };
 
     const loadPendingInvites = async () => {
         try {
@@ -225,6 +360,54 @@ const ProjectDashboard = () => {
         </Button>
     ];
 
+    const ActiveImportsPanel = () => {
+        if (importingRepos.size === 0) return null;
+
+        return (
+            <div className="fixed bottom-6 right-6 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-md z-50">
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                    <ClockIcon className="h-4 w-4 mr-2" />
+                    Active Imports ({importingRepos.size})
+                </h4>
+                <div className="space-y-3 max-h-40 overflow-y-auto">
+                    {Array.from(importingRepos.entries()).map(([repoId, repoInfo]) => {
+                        const progress = importProgress.get(repoId);
+                        return (
+                            <div key={repoId} className="text-sm">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium text-gray-900 truncate">
+                                        {repoInfo.name}
+                                    </span>
+                                    <button
+                                        onClick={() => cancelImport(repoId)}
+                                        className="text-gray-400 hover:text-gray-600 ml-2"
+                                    >
+                                        <XMarkIcon className="h-3 w-3" />
+                                    </button>
+                                </div>
+                                {progress && (
+                                    <>
+                                        <div className="w-full bg-gray-200 rounded-full h-1 mb-1">
+                                            <div
+                                                className={`h-1 rounded-full transition-all duration-300 ${progress.step === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                                                    }`}
+                                                style={{ width: `${progress.progress}%` }}
+                                            ></div>
+                                        </div>
+                                        <p className={`text-xs ${progress.step === 'error' ? 'text-red-600' : 'text-gray-600'
+                                            }`}>
+                                            {getProgressStepText(progress.step)}
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
             <Header
@@ -380,6 +563,8 @@ const ProjectDashboard = () => {
                 </div>
             </main>
 
+            <ActiveImportsPanel />
+
             {/* Create Project Modal */}
             {showCreateModal && (
                 <CreateProjectModal
@@ -398,6 +583,11 @@ const ProjectDashboard = () => {
                         setShowImportModal(false);
                         loadProjects();
                     }}
+                    importingRepos={importingRepos}
+                    setImportingRepos={setImportingRepos}
+                    importProgress={importProgress}
+                    setImportProgress={setImportProgress}
+                    cancelImport={cancelImport}
                 />
             )}
         </div>
@@ -445,7 +635,7 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
     };
 
     return (
-        <div 
+        <div
             className="bg-white rounded-lg border-2 border-gray-900 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:border-black transition-all duration-200 cursor-pointer"
             onClick={() => onProjectClick(project._id)}
         >
@@ -881,23 +1071,351 @@ const CreateProjectModal = ({ newProject, setNewProject, onSubmit, onClose }) =>
     );
 };
 
-// Import Project Modal Component (placeholder)
-const ImportProjectModal = ({ onClose, onImportSuccess }) => {
+// Import Project Modal Component (enhanced)
+const ImportProjectModal = ({
+    onClose,
+    onImportSuccess,
+    importingRepos,
+    setImportingRepos,
+    importProgress,
+    setImportProgress,
+    cancelImport
+}) => {
+    const [repositories, setRepositories] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        fetchRepositories();
+    }, []);
+
+    const fetchRepositories = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await githubService.getRepositories();
+            setRepositories(response.repositories || []);
+        } catch (error) {
+            console.error('Failed to fetch repositories:', error);
+            setError('Failed to load GitHub repositories. Please check your GitHub connection.');
+            setRepositories([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleImport = async (repo) => {
+        const repositoryId = repo.id.toString();
+
+        // NOW this will work because we have access to the state setters
+        setImportingRepos(prev => new Map(prev.set(repositoryId, {
+            name: repo.name,
+            url: repo.clone_url,
+            startTime: Date.now()
+        })));
+
+        setImportProgress(prev => new Map(prev.set(repositoryId, {
+            step: 'initializing',
+            message: 'Preparing to import repository...',
+            progress: 5
+        })));
+
+        try {
+            const response = await githubService.importRepository(
+                repo.clone_url,
+                repo.name,
+                repo.description,
+                repo.default_branch || 'main'
+            );
+
+            toast.info(`Import started for "${repo.name}". Please wait...`);
+            onClose();
+
+        } catch (error) {
+            console.error('Import failed:', error);
+
+            // Remove from importing state
+            setImportingRepos(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(repositoryId);
+                return newMap;
+            });
+
+            setImportProgress(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(repositoryId);
+                return newMap;
+            });
+
+            toast.error(`Failed to start import: ${error.response?.data?.error || error.message}`);
+        }
+    };
+
+    const renderImportButton = (repo) => {
+        const repositoryId = repo.id.toString();
+        const isImporting = importingRepos.has(repositoryId);
+        const progress = importProgress.get(repositoryId);
+
+        if (isImporting && progress) {
+            return (
+                <div className="min-w-[200px]">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                            <span className="text-sm font-medium text-blue-600">
+                                {progress.step === 'error' ? 'Failed' : 'Importing...'}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => cancelImport(repositoryId)}
+                            className="text-gray-400 hover:text-gray-600"
+                            title="Cancel Import"
+                        >
+                            <XMarkIcon className="h-4 w-4" />
+                        </button>
+                    </div>
+
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                        <div
+                            className={`h-2 rounded-full transition-all duration-300 ${progress.step === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                                }`}
+                            style={{ width: `${progress.progress}%` }}
+                        ></div>
+                    </div>
+
+                    <p className={`text-xs ${progress.step === 'error' ? 'text-red-600' : 'text-gray-600'
+                        }`}>
+                        {progress.message}
+                    </p>
+
+                    {progress.step !== 'error' && progress.step !== 'complete' && (
+                        <p className="text-xs text-gray-500 mt-1">
+                            This may take a few minutes for large repositories
+                        </p>
+                    )}
+                </div>
+            );
+        }
+
+        return (
+            <Button
+                variant="primary"
+                onClick={() => handleImport(repo)}
+                disabled={isImporting}
+                className="flex items-center space-x-2"
+            >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                <span>Import</span>
+            </Button>
+        );
+    };
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
+
+    const getLanguageColor = (language) => {
+        const colors = {
+            JavaScript: 'bg-yellow-100 text-yellow-800',
+            TypeScript: 'bg-blue-100 text-blue-800',
+            Python: 'bg-green-100 text-green-800',
+            Java: 'bg-red-100 text-red-800',
+            'C++': 'bg-purple-100 text-purple-800',
+            'C#': 'bg-indigo-100 text-indigo-800',
+            PHP: 'bg-violet-100 text-violet-800',
+            Ruby: 'bg-pink-100 text-pink-800',
+            Go: 'bg-cyan-100 text-cyan-800',
+            Rust: 'bg-orange-100 text-orange-800'
+        };
+        return colors[language] || 'bg-gray-100 text-gray-800';
+    };
+
+    const filteredRepos = repositories.filter(repo =>
+        repo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (repo.description && repo.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    <div className="space-y-3">
+        {filteredRepos.map((repo) => (
+            <div
+                key={repo.id}
+                className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+            >
+                <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-2">
+                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                                {repo.name}
+                            </h4>
+                            {repo.private && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                    Private
+                                </span>
+                            )}
+                            {repo.language && (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getLanguageColor(repo.language)}`}>
+                                    {repo.language}
+                                </span>
+                            )}
+                        </div>
+
+                        {repo.description && (
+                            <p className="text-sm text-gray-600 mb-2">
+                                {repo.description}
+                            </p>
+                        )}
+
+                        <div className="flex items-center space-x-4 text-xs text-gray-500">
+                            <div className="flex items-center space-x-1">
+                                <StarIcon className="h-3 w-3" />
+                                <span>{repo.stargazers_count}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                                <EyeIcon className="h-3 w-3" />
+                                <span>{repo.watchers_count}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                                <CalendarIcon className="h-3 w-3" />
+                                <span>Updated {formatDate(repo.updated_at)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* REPLACE the simple button with renderImportButton */}
+                    <div className="ml-4 flex-shrink-0">
+                        {renderImportButton(repo)}
+                    </div>
+                </div>
+            </div>
+        ))}
+    </div>
+
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh]">
                 <div className="p-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                        Import from GitHub
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                        GitHub import functionality coming soon! You'll be able to import entire repositories directly into your projects.
-                    </p>
-                    <div className="flex justify-end">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-medium text-gray-900">
+                            Import from GitHub
+                        </h3>
+                        <button
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-gray-600"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Search bar */}
+                    <div className="mb-4">
+                        <div className="relative">
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search repositories..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="max-h-96 overflow-y-auto">
+                        {loading ? (
+                            <div className="flex justify-center items-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                <span className="ml-2 text-gray-600">Loading repositories...</span>
+                            </div>
+                        ) : error ? (
+                            <div className="text-center py-8">
+                                <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-red-400 mb-4" />
+                                <p className="text-gray-600 mb-4">{error}</p>
+                                <Button
+                                    variant="ghost"
+                                    onClick={fetchRepositories}
+                                    className="flex items-center space-x-2"
+                                >
+                                    <ArrowPathIcon className="h-4 w-4" />
+                                    <span>Retry</span>
+                                </Button>
+                            </div>
+                        ) : filteredRepos.length === 0 ? (
+                            <div className="text-center py-8">
+                                <CodeBracketSquareIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                                <p className="text-gray-600">
+                                    {searchTerm ? 'No repositories match your search.' : 'No repositories found.'}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {filteredRepos.map((repo) => (
+                                    <div
+                                        key={repo.id}
+                                        className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center space-x-2 mb-2">
+                                                    <h4 className="text-sm font-medium text-gray-900 truncate">
+                                                        {repo.name}
+                                                    </h4>
+                                                    {repo.private && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                                            Private
+                                                        </span>
+                                                    )}
+                                                    {repo.language && (
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getLanguageColor(repo.language)}`}>
+                                                            {repo.language}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {repo.description && (
+                                                    <p className="text-sm text-gray-600 mb-2">
+                                                        {repo.description}
+                                                    </p>
+                                                )}
+
+                                                <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                                    <div className="flex items-center space-x-1">
+                                                        <StarIcon className="h-3 w-3" />
+                                                        <span>{repo.stargazers_count}</span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-1">
+                                                        <EyeIcon className="h-3 w-3" />
+                                                        <span>{repo.watchers_count}</span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-1">
+                                                        <CalendarIcon className="h-3 w-3" />
+                                                        <span>Updated {formatDate(repo.updated_at)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="ml-4 flex-shrink-0">
+                                                {renderImportButton(repo)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex justify-end mt-6">
                         <Button
                             variant="ghost"
                             onClick={onClose}
-                            className="flex items-center space-x-2 flex-1 md:flex-initial"
+                            className="flex items-center space-x-2"
                         >
                             <span>Close</span>
                         </Button>
