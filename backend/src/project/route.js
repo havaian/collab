@@ -21,4 +21,6 @@ router.delete('/:id/collaborators/:collaboratorId', projectController.removeColl
 router.post('/:id/join', projectController.joinProject);
 router.post('/:id/leave', projectController.leaveProject);
 
+router.use('/:projectId/files', require('../file/route'));
+
 module.exports = router;

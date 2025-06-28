@@ -386,6 +386,56 @@ class ApiService {
         }
     }
 
+    async createFile(projectId, fileData) {
+        try {
+            const response = await this.client.post(`/projects/${projectId}/files`, fileData);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to create file:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async getFile(fileId) {
+        try {
+            const response = await this.client.get(`/files/${fileId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get file:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async updateFile(fileId, fileData) {
+        try {
+            const response = await this.client.put(`/files/${fileId}`, fileData);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to update file:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async deleteFile(fileId) {
+        try {
+            const response = await this.client.delete(`/files/${fileId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to delete file:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    async executeCode(codeData) {
+        try {
+            const response = await this.client.post('/execute', codeData);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to execute code:', error);
+            throw this.handleError(error);
+        }
+    }
+
     async getPendingInvites() {
         try {
             const response = await this.get('/invite/user');

@@ -302,7 +302,7 @@ const GitHubIntegration = ({ projectId, onImport }) => {
                                             )}
                                         </div>
 
-                                        <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                                        <p className="text-left text-gray-600 text-sm mb-3 line-clamp-2">
                                             {repo.description || 'No description provided'}
                                         </p>
 
@@ -348,9 +348,10 @@ const GitHubIntegration = ({ projectId, onImport }) => {
                                         </Button>
                                     ) : (
                                         <Button
+                                            variant="primary"
                                             onClick={() => importRepository(repo)}
                                             disabled={syncing}
-                                            className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
+                                            className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-black hover:text-white"
                                         >
                                             <ArrowDownTrayIcon className="h-4 w-4" />
                                             <span>{syncing ? 'Importing...' : 'Import'}</span>

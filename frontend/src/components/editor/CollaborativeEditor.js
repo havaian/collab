@@ -699,7 +699,14 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                                     onCursorChange={handleCursorChange}
                                     readOnly={readOnly}
                                 />
-                                <CollaboratorCursors cursors={collaboratorCursors} />
+                                <CollaboratorCursors                               
+                                    cursors={collaboratorCursors}
+                                    projectId={projectId}
+                                    fileId={activeFile?.id}
+                                    monacoEditor={editorRef.current}
+                                    isActive={isFileJoined}
+                                    user={user}
+                                />
                             </>
                         ) : (
                             <div className="h-full flex items-center justify-center bg-gray-50">

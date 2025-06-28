@@ -6,7 +6,6 @@ class GitHubController {
             const { page = 1, per_page = 30 } = req.query;
             const repositories = await githubService.getUserRepositories(req.user.id, page, per_page);
             
-            console.log(repositories);
             // Fix: Ensure we return the structure the frontend expects
             res.json({ 
                 success: true, 

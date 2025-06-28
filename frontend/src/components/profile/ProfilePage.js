@@ -384,7 +384,7 @@ const ProfilePage = () => {
                                                                 <GlobeAltIcon className="h-4 w-4 text-green-500" title="Public" />
                                                             )}
                                                         </div>
-                                                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                                                        <p className="text-left text-sm text-gray-600 mb-3 line-clamp-2">
                                                             {project.description || 'No description provided'}
                                                         </p>
                                                         <div className="flex items-center justify-between text-xs text-gray-500">

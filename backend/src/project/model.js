@@ -25,9 +25,9 @@ const projectSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
         },
-        permissions: {
+        role: {
             type: String,
-            enum: ['read', 'write', 'admin'],
+            enum: ['read', 'write', 'admin', 'collaborator'],
             default: 'write'
         },
         joinedAt: {
@@ -103,7 +103,7 @@ projectSchema.virtual('collaboratorCount').get(function () {
 
 // Method to check if user has access
 projectSchema.methods.hasAccess = function (userId, permission = 'read') {
-    if (this.owner.toString() === userId.toString()) {
+    if (this.owner._id.toString() === userId.toString()) {
         return true;
     }
 
@@ -117,25 +117,25 @@ projectSchema.methods.hasAccess = function (userId, permission = 'read') {
 
     if (!collaborator) return false;
 
-    const permissionLevels = { read: 1, write: 2, admin: 3 };
-    const userLevel = permissionLevels[collaborator.permissions];
+    const permissionLevels = { read: 1, write: 2, collaborator: 2 , admin: 3 };
+    const userLevel = permissionLevels[collaborator.role];
     const requiredLevel = permissionLevels[permission];
 
     return userLevel >= requiredLevel;
 };
 
 // Method to add collaborator
-projectSchema.methods.addCollaborator = function (userId, permissions = 'write') {
+projectSchema.methods.addCollaborator = function (userId, role = 'write') {
     const existing = this.collaborators.find(
         c => c.user.toString() === userId.toString()
     );
 
     if (existing) {
-        existing.permissions = permissions;
+        existing.role = role;
     } else {
         this.collaborators.push({
             user: userId,
-            permissions,
+            role,
             joinedAt: new Date()
         });
     }

@@ -75,6 +75,17 @@ class ProjectService {
             .populate('owner', 'username avatar')
             .populate('collaborators.user', 'username avatar');
 
+        console.log('=== DEBUG PROJECT ACCESS ===');
+        console.log('Project ID:', projectId);
+        console.log('Project Owner:', project.owner);
+        console.log('Project Owner Type:', typeof project.owner);
+        console.log('User ID:', userId);
+        console.log('User ID Type:', typeof userId);
+        console.log('Owner toString():', project.owner.toString());
+        console.log('User toString():', userId.toString());
+        console.log('Are they equal?:', project.owner.toString() === userId.toString());
+        console.log('=== END DEBUG ===');
+
         if (!project) {
             throw new Error('Project not found');
         }

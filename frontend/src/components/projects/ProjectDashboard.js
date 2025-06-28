@@ -572,7 +572,7 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
 
                 {/* Description */}
                 <p
-                    className="text-gray-600 text-sm mb-4 line-clamp-2 cursor-pointer"
+                    className="text-left text-gray-600 text-sm mb-4 line-clamp-2 cursor-pointer"
                     onClick={() => onProjectClick(project._id)}
                 >
                     {project.description || 'No description provided'}
@@ -767,7 +767,7 @@ const PublicProjectCard = ({ project, onProjectClick, formatDate, getLanguageIco
                     <GlobeAltIcon className="h-4 w-4 text-green-500" title="Public" />
                 </div>
 
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                <p className="text-left text-gray-600 text-sm mb-4 line-clamp-2">
                     {project.description || 'No description provided'}
                 </p>
 

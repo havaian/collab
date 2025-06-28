@@ -12,8 +12,8 @@ class AuthService {
                 user.username = githubProfile.username;
                 user.email = githubProfile.emails?.[0]?.value || user.email;
                 user.avatar = githubProfile.photos?.[0]?.value || user.avatar;
-                user.accessToken = accessToken;
-                await user.updateActivity();
+                user.githubAccessToken = accessToken;
+                await user.save();
             } else {
                 // Create new user
                 user = new User({
@@ -21,7 +21,7 @@ class AuthService {
                     username: githubProfile.username,
                     email: githubProfile.emails?.[0]?.value,
                     avatar: githubProfile.photos?.[0]?.value,
-                    accessToken: accessToken
+                    githubAccessToken: accessToken
                 });
                 await user.save();
             }

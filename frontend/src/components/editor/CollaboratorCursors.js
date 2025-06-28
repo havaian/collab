@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
-import { useAuth } from '../../hooks/useAuth';
 
 const CollaboratorCursors = ({
     projectId,
     fileId,
     monacoEditor,
-    isActive = false
+    isActive = false,
+    cursors: propCursors, 
+    user
 }) => {
-    const [cursors, setCursors] = useState({});
+    const [localCursors, setLocalCursors] = useState({});
     const [collaborators, setCollaborators] = useState({});
     const { socket } = useSocket();
-    const { user } = useAuth();
     const cursorDecorations = useRef({});
     const selectionDecorations = useRef({});
     const lastCursorPosition = useRef(null);
@@ -43,7 +43,7 @@ const CollaboratorCursors = ({
 
             if (userId === user.id) return; // Ignore own cursor
 
-            setCursors(prev => ({
+            setLocalCursors(prev => ({
                 ...prev,
                 [userId]: {
                     ...cursor,
@@ -82,7 +82,7 @@ const CollaboratorCursors = ({
         const handleCollaboratorLeft = (data) => {
             const { userId } = data;
 
-            setCursors(prev => {
+            setLocalCursors(prev => {
                 const updated = { ...prev };
                 delete updated[userId];
                 return updated;
@@ -101,7 +101,7 @@ const CollaboratorCursors = ({
         const handleCollaboratorInactive = (data) => {
             const { userId } = data;
 
-            setCursors(prev => {
+            setLocalCursors(prev => {
                 const updated = { ...prev };
                 delete updated[userId];
                 return updated;
@@ -192,24 +192,24 @@ const CollaboratorCursors = ({
         };
     }, [socket, monacoEditor, fileId, isActive]);
 
-    // Update Monaco editor decorations when cursors change
+    // Update Monaco editor decorations when localCursors change
     useEffect(() => {
         if (!monacoEditor) return;
 
-        Object.entries(cursors).forEach(([userId, cursorData]) => {
+        Object.entries(localCursors).forEach(([userId, cursorData]) => {
             const collaborator = collaborators[userId];
             if (!collaborator) return;
 
             updateCursorDecorations(userId, cursorData, collaborator.color);
         });
 
-        // Clean up old cursors that are no longer active
+        // Clean up old localCursors that are no longer active
         Object.keys(cursorDecorations.current).forEach(userId => {
-            if (!cursors[userId]) {
+            if (!localCursors[userId]) {
                 cleanupUserDecorations(userId);
             }
         });
-    }, [cursors, collaborators, monacoEditor]);
+    }, [localCursors, collaborators, monacoEditor]);
 
     const getNextAvailableColor = (currentCollaborators) => {
         const usedColors = Object.values(currentCollaborators).map(c => c.color);
@@ -352,7 +352,7 @@ const CollaboratorCursors = ({
             const now = Date.now();
             const staleThreshold = 30000; // 30 seconds
 
-            setCursors(prev => {
+            setLocalCursors(prev => {
                 const updated = { ...prev };
                 let hasChanges = false;
 
