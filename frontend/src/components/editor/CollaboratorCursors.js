@@ -6,7 +6,7 @@ const CollaboratorCursors = ({
     fileId,
     monacoEditor,
     isActive = false,
-    cursors: propCursors, 
+    cursors: propCursors,
     user
 }) => {
     const [localCursors, setLocalCursors] = useState({});

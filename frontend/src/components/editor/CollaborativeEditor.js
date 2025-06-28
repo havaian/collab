@@ -8,7 +8,6 @@ import CodeEditorWindow from './CodeEditorWindow';
 import OutputWindow from './OutputWindow';
 import CommandPrompt from './CommandPrompt';
 import ChatInterface from '../chat/ChatInterface';
-import FileTree from './FileTree';
 import CollaboratorCursors from './CollaboratorCursors';
 import Header from '../shared/Header';
 import Button from '../shared/Button';
@@ -18,6 +17,7 @@ import {
     XMarkIcon,
     PlayIcon,
     DocumentArrowDownIcon,
+    FolderOpenIcon,
     UsersIcon,
     CloudArrowUpIcon,
     ShareIcon,
@@ -42,6 +42,8 @@ const CollaborativeEditor = ({ readOnly = false }) => {
     const [language, setLanguage] = useState('javascript');
     const [theme, setTheme] = useState('oceanic-next');
     const [filesLoading, setFilesLoading] = useState(true);
+    const [expandedFolders, setExpandedFolders] = useState(new Set());
+    const [fileCache, setFileCache] = useState(new Map());
 
     // Execution state
     const [customInput, setCustomInput] = useState('');
@@ -89,28 +91,42 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
     useEffect(() => {
         if (activeFile && socket && isFileJoined) {
-            joinFileEditing(activeFile.id);
+            joinFileEditing(activeFile._id);
         }
 
         return () => {
             if (activeFile && socket) {
-                leaveFileEditing(activeFile.id);
+                leaveFileEditing(activeFile._id);
             }
         };
     }, [activeFile, socket, isFileJoined]);
 
     // Auto-save functionality
     useEffect(() => {
-        if (activeFile && code !== lastSaveRef.current && !readOnly) {
+        // Only auto-save if we have an active file and the content actually changed
+        if (activeFile && activeFile._id && code !== lastSaveRef.current && !readOnly) {
+            // Clear any existing timeout
             if (saveTimeoutRef.current) {
                 clearTimeout(saveTimeoutRef.current);
             }
 
+            // Set new timeout
             saveTimeoutRef.current = setTimeout(() => {
-                handleAutoSave();
+                // Double-check we're still on the same file before saving
+                if (activeFile && activeFile._id) {
+                    console.log('Triggering auto-save for:', activeFile.name, activeFile._id);
+                    handleAutoSave();
+                }
             }, AUTO_SAVE_DELAY);
         }
-    }, [code, activeFile]);
+
+        // Cleanup timeout when component unmounts or activeFile changes
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, [code, activeFile?._id]); // Watch activeFile._id specifically
 
     const loadProject = async () => {
         try {
@@ -128,11 +144,18 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         setFilesLoading(true);
         try {
             const response = await apiService.getProjectFiles(projectId);
-            setFiles(response.files);
+
+            // Transform _id to id for compatibility (if needed)
+            const transformedFiles = response.files.map(file => ({
+                ...file,
+                id: file._id || file.id // Ensure id property exists
+            }));
+
+            setFiles(transformedFiles);
 
             // Auto-select first file if no file is active
-            if (response.files.length > 0 && !activeFile) {
-                const firstFile = response.files.find(f => f.type === 'file');
+            if (transformedFiles.length > 0 && !activeFile) {
+                const firstFile = transformedFiles.find(f => f.type === 'file');
                 if (firstFile) {
                     handleFileSelect(firstFile);
                 }
@@ -183,12 +206,12 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         });
 
         socket.on('user:joined', ({ user: joinedUser }) => {
-            setActiveUsers(prev => [...prev.filter(u => u.id !== joinedUser.id), joinedUser]);
+            setActiveUsers(prev => [...prev.filter(u => u._id !== joinedUser._id), joinedUser]);
             toast.info(`${joinedUser.username} joined the project`, { autoClose: 2000 });
         });
 
         socket.on('user:left', ({ user: leftUser }) => {
-            setActiveUsers(prev => prev.filter(u => u.id !== leftUser.id));
+            setActiveUsers(prev => prev.filter(u => u._id !== leftUser._id));
             toast.info(`${leftUser.username} left the project`, { autoClose: 2000 });
         });
 
@@ -199,47 +222,47 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         });
 
         socket.on('file:user-joined', ({ user: joinedUser, fileId }) => {
-            if (fileId === activeFile?.id) {
+            if (fileId === activeFile?._id) {
                 toast.info(`${joinedUser.username} is now editing this file`, { autoClose: 2000 });
             }
         });
 
         socket.on('file:user-left', ({ user: leftUser, fileId }) => {
-            if (fileId === activeFile?.id) {
+            if (fileId === activeFile?._id) {
                 setCollaboratorCursors(prev => {
                     const updated = { ...prev };
-                    delete updated[leftUser.id];
+                    delete updated[leftUser._id];
                     return updated;
                 });
             }
         });
 
         socket.on('file:edit', ({ changes, user: editUser, fileId }) => {
-            if (editUser.id !== user.id && fileId === activeFile?.id) {
+            if (editUser._id !== user._id && fileId === activeFile?._id) {
                 // Apply collaborative changes (in a real implementation, this would use operational transforms)
                 console.log('Collaborative edit received:', changes);
             }
         });
 
         socket.on('file:saved', ({ savedBy, fileId }) => {
-            if (savedBy.id !== user.id && fileId === activeFile?.id) {
+            if (savedBy._id !== user._id && fileId === activeFile?._id) {
                 toast.success(`File saved by ${savedBy.username}`, { autoClose: 2000 });
                 loadFileContent(fileId);
             }
         });
 
         socket.on('file:cursor', ({ user: cursorUser, cursor, fileId }) => {
-            if (cursorUser.id !== user.id && fileId === activeFile?.id) {
+            if (cursorUser._id !== user._id && fileId === activeFile?._id) {
                 setCollaboratorCursors(prev => ({
                     ...prev,
-                    [cursorUser.id]: { user: cursorUser, cursor }
+                    [cursorUser._id]: { user: cursorUser, cursor }
                 }));
             }
         });
 
         // Code execution events
         socket.on('code:executed', ({ user: execUser, language: execLang }) => {
-            if (execUser.id !== user.id) {
+            if (execUser._id !== user._id) {
                 toast.info(`${execUser.username} executed ${execLang} code`, { autoClose: 2000 });
             }
         });
@@ -257,22 +280,101 @@ const CollaborativeEditor = ({ readOnly = false }) => {
     const handleFileSelect = async (file) => {
         if (file.type === 'folder') return;
 
+        // CRITICAL: Clear any pending auto-save to prevent cross-file contamination
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+        }
+
         try {
             // Leave current file editing if any
             if (activeFile && socket) {
-                leaveFileEditing(activeFile.id);
+                leaveFileEditing(activeFile._id);
             }
 
             setActiveFile(file);
-            const response = await apiService.getFile(file.id);
-            setCode(response.file.content);
-            setLanguage(response.file.language);
-            lastSaveRef.current = response.file.content;
+
+            // Use file._id as the cache key
+            const cacheKey = file._id;
+            console.log('Selecting file:', file.name, 'ID:', cacheKey);
+
+            // Check cache first
+            if (fileCache.has(cacheKey)) {
+                console.log('Loading from cache:', file.name, 'ID:', cacheKey);
+                const cachedFile = fileCache.get(cacheKey);
+                setCode(cachedFile.content);
+                setLanguage(cachedFile.language);
+                lastSaveRef.current = cachedFile.content;
+            } else {
+                console.log('Loading from API:', file.name, 'ID:', cacheKey);
+                const response = await apiService.getFile(file._id);
+
+                // Map file extension to Monaco language
+                const getLanguageFromPath = (path) => {
+                    const ext = path.split('.').pop().toLowerCase();
+                    const languageMap = {
+                        'js': 'javascript',
+                        'jsx': 'javascript',
+                        'ts': 'typescript',
+                        'tsx': 'typescript',
+                        'html': 'html',
+                        'css': 'css',
+                        'scss': 'scss',
+                        'sass': 'sass',
+                        'json': 'json',
+                        'py': 'python',
+                        'java': 'java',
+                        'cpp': 'cpp',
+                        'c': 'c',
+                        'go': 'go',
+                        'rs': 'rust',
+                        'php': 'php',
+                        'rb': 'ruby',
+                        'md': 'markdown',
+                        'yml': 'yaml',
+                        'yaml': 'yaml',
+                        'xml': 'xml',
+                        'sql': 'sql',
+                        'sh': 'shell',
+                        'bash': 'shell',
+                        'vue': 'html',
+                        'txt': 'plaintext'
+                    };
+                    return languageMap[ext] || 'plaintext';
+                };
+
+                const detectedLanguage = getLanguageFromPath(file.path) || response.file.language || 'javascript';
+
+                // Cache the file with explicit ID
+                const fileData = {
+                    content: response.file.content,
+                    language: detectedLanguage,
+                    fileId: file._id,  // Store ID for debugging
+                    fileName: file.name  // Store name for debugging
+                };
+
+                console.log('Caching file:', file.name, 'ID:', cacheKey, 'Content length:', response.file.content.length);
+                console.log('First 100 chars of content:', response.file.content.substring(0, 100));
+                console.log('API returned file path:', response.file.path);
+                console.log('API returned file name:', response.file.name);
+
+                setFileCache(prev => {
+                    const newCache = new Map(prev);
+                    newCache.set(cacheKey, fileData);
+                    console.log('Cache now has:', Array.from(newCache.keys()));
+                    return newCache;
+                });
+
+                setCode(response.file.content);
+                setLanguage(detectedLanguage);
+                lastSaveRef.current = response.file.content;
+            }
 
             // Clear output when switching files
             setOutputDetails(null);
 
         } catch (error) {
+            console.error('Failed to load file:', error);
             toast.error('Failed to load file');
         }
     };
@@ -295,7 +397,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                 // Emit collaborative changes
                 if (socket && activeFile && isFileJoined) {
                     socket.emit('file:edit', {
-                        fileId: activeFile.id,
+                        fileId: activeFile._id,
                         changes: { content: data },
                         version: activeFile.version || 1
                     });
@@ -309,22 +411,46 @@ const CollaborativeEditor = ({ readOnly = false }) => {
     const handleAutoSave = async () => {
         if (!activeFile || readOnly || code === lastSaveRef.current) return;
 
+        // CRITICAL: Only save if the current code actually belongs to the active file
+        const currentFileId = activeFile._id;
+        console.log('Auto-saving file:', activeFile.name, 'ID:', currentFileId);
+        console.log('Content length:', code.length);
+        console.log('Last saved content length:', lastSaveRef.current?.length || 0);
+
         try {
-            await apiService.updateFile(activeFile.id, { content: code });
-            lastSaveRef.current = code;
+            await apiService.updateFile(currentFileId, { content: code });
 
-            // Emit save event
-            if (socket) {
-                socket.emit('file:save', {
-                    fileId: activeFile.id,
-                    content: code
+            // Only update refs and cache if we're still on the same file
+            if (activeFile && activeFile._id === currentFileId) {
+                lastSaveRef.current = code;
+
+                // Emit save event
+                if (socket) {
+                    socket.emit('file:save', {
+                        fileId: currentFileId,
+                        content: code
+                    });
+                }
+
+                // Update cache for this specific file
+                setFileCache(prev => {
+                    const newCache = new Map(prev);
+                    if (newCache.has(currentFileId)) {
+                        const existingCache = newCache.get(currentFileId);
+                        newCache.set(currentFileId, {
+                            ...existingCache,
+                            content: code
+                        });
+                        console.log('Updated cache for file:', currentFileId);
+                    }
+                    return newCache;
                 });
-            }
 
-            // Update file in files list
-            setFiles(prev => prev.map(f =>
-                f.id === activeFile.id ? { ...f, content: code } : f
-            ));
+                // Update file in files list
+                setFiles(prev => prev.map(f =>
+                    f._id === currentFileId ? { ...f, content: code } : f
+                ));
+            }
 
         } catch (error) {
             console.error('Auto-save failed:', error);
@@ -335,12 +461,12 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         if (!activeFile || readOnly) return;
 
         try {
-            await apiService.updateFile(activeFile.id, { content: code });
+            await apiService.updateFile(activeFile._id, { content: code });
             lastSaveRef.current = code;
 
             if (socket) {
                 socket.emit('file:save', {
-                    fileId: activeFile.id,
+                    fileId: activeFile._id,
                     content: code
                 });
             }
@@ -365,7 +491,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                 language,
                 stdin: customInput,
                 projectId,
-                fileId: activeFile?.id
+                fileId: activeFile?._id
             });
 
             setOutputDetails(result.output);
@@ -374,7 +500,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
             if (socket) {
                 socket.emit('code:execute', {
                     projectId,
-                    fileId: activeFile?.id,
+                    fileId: activeFile?._id,
                     code,
                     language,
                     stdin: customInput
@@ -416,11 +542,11 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         }
 
         try {
-            await apiService.deleteFile(file.id);
+            await apiService.deleteFile(file._id);
             await loadFiles();
 
             // Clear active file if it was deleted
-            if (activeFile?.id === file.id) {
+            if (activeFile?._id === file._id) {
                 setActiveFile(null);
                 setCode('');
             }
@@ -434,7 +560,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
     const handleCursorChange = useCallback((position) => {
         if (socket && activeFile && isFileJoined) {
             socket.emit('file:cursor', {
-                fileId: activeFile.id,
+                fileId: activeFile._id,
                 cursor: position
             });
         }
@@ -495,7 +621,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                 <div className="flex -space-x-1">
                     {activeUsers.slice(0, 3).map((user, i) => (
                         <img
-                            key={user.id}
+                            key={user._id}
                             src={user.avatar || '/default-avatar.png'}
                             alt={user.username}
                             className="h-6 w-6 rounded-full border-2 border-white"
@@ -600,109 +726,136 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                 {projectBadges}
             </Header>
 
-            {/* Main Content - 85% height */}
-            <main className="h-[81.5vh] flex">
+            {/* Main Content - Fixed Height Layout */}
+            <main className="h-[calc(100vh-132px)] flex">
                 {/* File Tree Sidebar */}
                 {showFileTree && (
                     <div
-                        className="bg-white border-r border-gray-200 overflow-y-auto resize-x"
+                        className="bg-white border-r border-gray-200 overflow-hidden flex-shrink-0"
                         style={{ width: sidebarWidth, minWidth: 200, maxWidth: 500 }}
                     >
                         <div className="h-full flex flex-col">
-                            {/* Header */}
                             <div className="flex items-center justify-between p-3 border-b border-gray-200">
-                                <h3 className="text-sm font-medium text-gray-900">
-                                    Files
-                                </h3>
-                                {!readOnly && (
-                                    <Button
-                                        onClick={() => handleCreateFile('newfile.js')}
-                                        variant="ghost"
-                                        size="xs"
-                                        className="p-1"
-                                        title="New File"
-                                    >
-                                        <PlusIcon className="w-4 h-4" />
-                                    </Button>
-                                )}
+                                <h3 className="text-sm font-medium text-gray-900">Files ({files.length})</h3>
                             </div>
+                            <div className="flex-1 overflow-y-auto py-2">
+                                {(() => {
+                                    // Build tree structure from paths
+                                    const buildTreeFromPaths = (files) => {
+                                        const tree = {};
 
-                            {/* File Tree Content */}
-                            <div className="flex-1 overflow-y-auto">
-                                {filesLoading ? (
-                                    <div className="p-4">
-                                        <div className="animate-pulse space-y-2">
-                                            {[...Array(5)].map((_, i) => (
-                                                <div key={i} className="h-6 bg-gray-200 rounded"></div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : files.length === 0 ? (
-                                    <div className="p-4 text-center">
-                                        <DocumentIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                                        <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                            No files yet
-                                        </h3>
-                                        <p className="text-gray-500 mb-4">
-                                            Create your first file to get started coding.
-                                        </p>
-                                        {!readOnly && (
-                                            <div className="space-y-2">
-                                                <Button
-                                                    onClick={() => handleCreateFile('index.js')}
-                                                    variant="primary"
-                                                    size="sm"
-                                                    className="w-full"
+                                        files.forEach(file => {
+                                            const pathParts = file.path.split('/').filter(part => part);
+                                            let current = tree;
+
+                                            // Create folder structure
+                                            for (let i = 0; i < pathParts.length - 1; i++) {
+                                                const folderName = pathParts[i];
+                                                if (!current[folderName]) {
+                                                    current[folderName] = {
+                                                        name: folderName,
+                                                        type: 'folder',
+                                                        path: pathParts.slice(0, i + 1).join('/'),
+                                                        children: {},
+                                                        _id: `folder-${pathParts.slice(0, i + 1).join('-')}`
+                                                    };
+                                                }
+                                                current = current[folderName].children;
+                                            }
+
+                                            // Add the file
+                                            const fileName = pathParts[pathParts.length - 1];
+                                            current[fileName] = {
+                                                ...file,
+                                                children: file.type === 'folder' ? {} : undefined
+                                            };
+                                        });
+
+                                        // Convert to array and sort
+                                        const convertToArray = (obj) => {
+                                            return Object.values(obj)
+                                                .map(item => ({
+                                                    ...item,
+                                                    children: item.children ? convertToArray(item.children) : undefined
+                                                }))
+                                                .sort((a, b) => {
+                                                    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+                                                    return a.name.localeCompare(b.name);
+                                                });
+                                        };
+
+                                        return convertToArray(tree);
+                                    };
+
+                                    const renderFile = (file, depth = 0) => {
+                                        const isActive = activeFile && activeFile._id === file._id;
+                                        const isExpanded = expandedFolders.has(file._id || file.path);
+
+                                        return (
+                                            <div key={file._id || file.path}>
+                                                <div
+                                                    className={`flex items-center text-sm cursor-pointer hover:bg-gray-300 ${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
+                                                        }`}
+                                                    style={{ paddingLeft: `${depth * 16 + 12}px`, paddingTop: '6px', paddingBottom: '6px' }}
+                                                    onClick={() => {
+                                                        if (file.type === 'folder') {
+                                                            const newExpanded = new Set(expandedFolders);
+                                                            const key = file._id || file.path;
+                                                            if (newExpanded.has(key)) {
+                                                                newExpanded.delete(key);
+                                                            } else {
+                                                                newExpanded.add(key);
+                                                            }
+                                                            setExpandedFolders(newExpanded);
+                                                        } else {
+                                                            handleFileSelect(file);
+                                                        }
+                                                    }}
                                                 >
-                                                    <DocumentIcon className="h-4 w-4 mr-2" />
-                                                    Create File
-                                                </Button>
-                                                <Button
-                                                    onClick={() => handleCreateFile('src')}
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="w-full"
-                                                >
-                                                    <FolderIcon className="h-4 w-4 mr-2" />
-                                                    Create Folder
-                                                </Button>
+                                                    {file.type === 'folder' ? (
+                                                        isExpanded ? <FolderOpenIcon className="w-4 h-4 mr-2 text-blue-500" /> : <FolderIcon className="w-4 h-4 mr-2 text-blue-500" />
+                                                    ) : (
+                                                        <DocumentIcon className="w-4 h-4 mr-2" />
+                                                    )}
+                                                    {file.name}
+                                                </div>
+                                                {file.type === 'folder' && isExpanded && file.children && (
+                                                    <div>
+                                                        {file.children.map(child => renderFile(child, depth + 1))}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <FileTree
-                                        files={files}
-                                        activeFile={activeFile}
-                                        onFileSelect={handleFileSelect}
-                                        onCreateFile={handleCreateFile}
-                                        onDeleteFile={handleDeleteFile}
-                                        readOnly={readOnly}
-                                    />
-                                )}
+                                        );
+                                    };
+
+                                    return buildTreeFromPaths(files).map(file => renderFile(file));
+                                })()}
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Editor Area */}
-                <div className="flex-1 flex flex-col min-w-0">
-                    {/* Editor */}
-                    <div className="flex-1 relative">
+                {/* Editor Area - Fixed Height with Scroll */}
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                    {/* Editor Container - Takes remaining space, scrollable */}
+                    <div className="flex-1 min-h-0 relative">
                         {activeFile ? (
                             <>
-                                <CodeEditorWindow
-                                    ref={editorRef}
-                                    code={code}
-                                    onChange={handleCodeChange}
-                                    language={language}
-                                    theme={theme}
-                                    onCursorChange={handleCursorChange}
-                                    readOnly={readOnly}
-                                />
-                                <CollaboratorCursors                               
+                                <div className="h-full">
+                                    <CodeEditorWindow
+                                        ref={editorRef}
+                                        code={code}
+                                        onChange={handleCodeChange}
+                                        language={language}
+                                        theme={theme}
+                                        onCursorChange={handleCursorChange}
+                                        readOnly={readOnly}
+                                    />
+                                </div>
+                                <CollaboratorCursors
                                     cursors={collaboratorCursors}
                                     projectId={projectId}
-                                    fileId={activeFile?.id}
+                                    fileId={activeFile?._id}
                                     monacoEditor={editorRef.current}
                                     isActive={isFileJoined}
                                     user={user}
@@ -725,37 +878,34 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                         )}
                     </div>
 
-                    {/* Output Panel */}
+                    {/* Output Panel - Fixed Height */}
                     {showOutput && (
                         <div
-                            className="border-t border-gray-200 bg-white overflow-hidden"
-                            style={{ height: outputHeight, minHeight: 200, maxHeight: 600 }}
+                            className="border-t border-gray-200 bg-white flex-shrink-0"
+                            style={{ height: outputHeight }}
                         >
                             <div className="h-full flex">
                                 {/* Output Section */}
-                                <div className="flex-1 flex flex-col">
-                                    <div className="p-4 border-b border-gray-200">
-                                        <h3 className="text-sm font-medium text-gray-900">Output window</h3>
+                                <div className="flex-1 flex flex-col min-w-0">
+                                    <div className="p-3 border-b border-gray-200 flex-shrink-0">
+                                        <h3 className="text-sm font-medium text-gray-900">Output</h3>
                                     </div>
-                                    <div className="flex-1 p-4">
+                                    <div className="flex-1 overflow-auto">
                                         <OutputWindow outputDetails={outputDetails} />
                                     </div>
                                 </div>
 
                                 {/* Input Section */}
                                 {!readOnly && (
-                                    <div className="w-80 border-l border-gray-200 flex flex-col">
-                                        <div className="p-4 border-b border-gray-200">
-                                            <h3 className="text-sm font-medium text-gray-900">Command prompt</h3>
+                                    <div className="w-80 border-l border-gray-200 flex flex-col flex-shrink-0">
+                                        <div className="p-3 border-b border-gray-200 flex-shrink-0">
+                                            <h3 className="text-sm font-medium text-gray-900">Input</h3>
                                         </div>
-                                        <div className="flex-1 p-4 flex flex-col">
-                                            <div className="flex-1 flex flex-col justify-end">
-                                                <CommandPrompt
-                                                    customInput={customInput}
-                                                    setCustomInput={setCustomInput}
-                                                    className="h-full"
-                                                />
-                                            </div>
+                                        <div className="flex-1 overflow-auto">
+                                            <CommandPrompt
+                                                customInput={customInput}
+                                                setCustomInput={setCustomInput}
+                                            />
                                         </div>
                                     </div>
                                 )}
@@ -766,9 +916,9 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
                 {/* Chat Sidebar */}
                 {showChat && (
-                    <div className="w-80 border-l border-gray-200 bg-white">
+                    <div className="w-80 border-l border-gray-200 bg-white flex-shrink-0">
                         <div className="h-full flex flex-col">
-                            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+                            <div className="p-3 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
                                 <h3 className="font-medium text-gray-900">Project Chat</h3>
                                 <Button
                                     onClick={() => setShowChat(false)}
@@ -779,14 +929,16 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                                     <XMarkIcon className="h-4 w-4" />
                                 </Button>
                             </div>
-                            <ChatInterface projectId={projectId} />
+                            <div className="flex-1 overflow-hidden">
+                                <ChatInterface projectId={projectId} />
+                            </div>
                         </div>
                     </div>
                 )}
             </main>
 
             {/* Status Bar */}
-            <div className="bg-gray-800 text-white px-4 py-1 text-xs flex items-center justify-between">
+            <div className="bg-gray-800 text-white px-4 py-2 text-xs flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-4">
                     {activeFile && (
                         <>
