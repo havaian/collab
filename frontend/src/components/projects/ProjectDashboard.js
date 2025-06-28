@@ -58,8 +58,9 @@ const ProjectDashboard = () => {
     const loadPendingInvites = async () => {
         try {
             const response = await apiService.getPendingInvites();
-            setPendingInvites(response.invites);
-            setInviteCount(response.invites ? 0 : response.invites.length);
+            const invites = response.invites || [];
+            setPendingInvites(invites);
+            setInviteCount(invites.length);
         } catch (error) {
             console.error('Failed to load pending invites:', error);
         }
