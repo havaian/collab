@@ -17,7 +17,7 @@ const AnimatedLogo = ({
             spacing: 'space-x-2'
         },
         medium: {
-            img: 'h-8 w-8',
+            img: 'h-16 w-16',
             svg: 'h-8 w-8',
             text: 'text-xl',
             spacing: 'space-x-2'
@@ -58,7 +58,7 @@ const AnimatedLogo = ({
         <img
             src="/logo.png"
             alt="GPT-Collab Logo"
-            className={`${config.img} ${svgClassName} transition-all duration-300 ease-in-out logo-image object-contain`}
+            className={`h-24 w-24 ${svgClassName} transition-all duration-300 ease-in-out logo-image object-contain`}
         />
     );
 
