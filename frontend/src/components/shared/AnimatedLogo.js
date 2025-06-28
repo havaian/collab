@@ -11,21 +11,25 @@ const AnimatedLogo = ({
     // Size configurations
     const sizeConfig = {
         small: {
+            img: 'h-12 w-12',
             svg: 'h-6 w-6',
             text: 'text-lg',
             spacing: 'space-x-2'
         },
         medium: {
+            img: 'h-8 w-8',
             svg: 'h-8 w-8',
             text: 'text-xl',
             spacing: 'space-x-2'
         },
         large: {
+            img: 'h-24 w-24',
             svg: 'h-12 w-12',
             text: 'text-3xl',
             spacing: 'space-x-3'
         },
         xlarge: {
+            img: 'h-32 w-32',
             svg: 'h-16 w-16',
             text: 'text-4xl',
             spacing: 'space-x-4'
@@ -37,20 +41,25 @@ const AnimatedLogo = ({
 
     // Define the SVG as a component for better animation control
     const LogoSVG = ({ className: svgClassName }) => (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="1.5"
-            className={`${config.svg} ${svgClassName} transition-all duration-300 ease-in-out logo-svg`}
-        >
-            <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"
-                className="transition-all duration-500 ease-in-out logo-path"
-            />
-        </svg>
+        // <svg
+        //     xmlns="http://www.w3.org/2000/svg"
+        //     fill="none"
+        //     viewBox="0 0 24 24"
+        //     strokeWidth="1.5"
+        //     className={`${config.svg} ${svgClassName} transition-all duration-300 ease-in-out logo-svg`}
+        // >
+        //     <path
+        //         strokeLinecap="round"
+        //         strokeLinejoin="round"
+        //         d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"
+        //         className="transition-all duration-500 ease-in-out logo-path"
+        //     />
+        // </svg>
+        <img
+            src="/logo.png"
+            alt="GPT-Collab Logo"
+            className={`${config.img} ${svgClassName} transition-all duration-300 ease-in-out logo-image object-contain`}
+        />
     );
 
     const renderContent = () => {

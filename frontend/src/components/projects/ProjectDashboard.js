@@ -331,25 +331,6 @@ const ProjectDashboard = () => {
                                             : 'Create your first collaborative project to get started.'
                                         }
                                     </p>
-                                    {!searchTerm && (
-                                        <div className="space-x-3">
-                                            <Button
-                                                variant="primary"
-                                                onClick={() => setShowCreateModal(true)}
-                                                className="inline-flex items-center"
-                                            >
-                                                <PlusIcon className="h-4 w-4 mr-2" />
-                                                Create Project
-                                            </Button>
-                                            <Button
-                                                variant="secondary"
-                                                onClick={() => setShowImportModal(true)}
-                                                className="inline-flex items-center"
-                                            >
-                                                Import from GitHub
-                                            </Button>
-                                        </div>
-                                    )}
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

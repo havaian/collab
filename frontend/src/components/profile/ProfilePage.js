@@ -413,7 +413,7 @@ const ProfilePage = () => {
                                         {isOwnProfile && (
                                             <Button
                                                 onClick={() => navigate('/')}
-                                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                className="bg-blue-600 hover:bg-blue-700 text-black hover:text-white"
                                             >
                                                 Create Your First Project
                                             </Button>
