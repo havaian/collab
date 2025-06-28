@@ -10,6 +10,27 @@ const AnimatedLogo = ({
 }) => {
     // Size configurations
     const sizeConfig = {
+        // small: {
+        //     svg: 'h-6 w-6',
+        //     text: 'text-lg',
+        //     spacing: 'space-x-2'
+        // },
+        // medium: {
+        //     svg: 'h-8 w-8',
+        //     text: 'text-xl',
+        //     spacing: 'space-x-2'
+        // },
+        // large: {
+        //     svg: 'h-12 w-12',
+        //     text: 'text-3xl',
+        //     spacing: 'space-x-3'
+        // },
+        // xlarge: {
+        //     svg: 'h-16 w-16',
+        //     text: 'text-4xl',
+        //     spacing: 'space-x-4'
+        // }
+        
         small: {
             img: 'h-12 w-12',
             svg: 'h-6 w-6',
