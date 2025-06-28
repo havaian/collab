@@ -5,7 +5,7 @@ class ApiService {
     constructor() {
         // Create axios instance with default config
         this.client = axios.create({
-            baseURL: `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api`,
+            baseURL: `${process.env.REACT_APP_API_URL || 'https://collab.ytech.space'}/api`,
             timeout: 30000, // 30 seconds timeout
             headers: {
                 'Content-Type': 'application/json',

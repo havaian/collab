@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://collab.ytech.space/api';
 
     // Check if user is already authenticated on app load
     useEffect(() => {

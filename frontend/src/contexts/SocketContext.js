@@ -25,7 +25,7 @@ export const SocketProvider = ({ children }) => {
 
         try {
             // Use correct WebSocket URL
-            const wsUrl = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+            const wsUrl = process.env.REACT_APP_SOCKET_URL || 'https://collab.ytech.space';
 
             const newSocket = io(wsUrl, {
                 auth: { token: authToken },
