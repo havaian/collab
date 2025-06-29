@@ -114,7 +114,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
             saveTimeoutRef.current = setTimeout(() => {
                 // Double-check we're still on the same file before saving
                 if (activeFile && activeFile._id) {
-                    console.log('Triggering auto-save for:', activeFile.name, activeFile._id);
                     handleAutoSave();
                 }
             }, AUTO_SAVE_DELAY);
@@ -296,18 +295,15 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
             // Use file._id as the cache key
             const cacheKey = file._id;
-            console.log('Selecting file:', file.name, 'ID:', cacheKey);
 
             // Check cache first
             if (fileCache.has(cacheKey)) {
-                console.log('Loading from cache:', file.name, 'ID:', cacheKey);
                 const cachedFile = fileCache.get(cacheKey);
                 setCode(cachedFile.content);
                 setLanguage(cachedFile.language);
                 lastSaveRef.current = cachedFile.content;
             } else {
-                console.log('Loading from API:', file.name, 'ID:', cacheKey);
-                const response = await apiService.getFile(file._id);
+                const response = await apiService.getFileContent(file._id);
 
                 // Map file extension to Monaco language
                 const getLanguageFromPath = (path) => {
@@ -353,15 +349,9 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                     fileName: file.name  // Store name for debugging
                 };
 
-                console.log('Caching file:', file.name, 'ID:', cacheKey, 'Content length:', response.file.content.length);
-                console.log('First 100 chars of content:', response.file.content.substring(0, 100));
-                console.log('API returned file path:', response.file.path);
-                console.log('API returned file name:', response.file.name);
-
                 setFileCache(prev => {
                     const newCache = new Map(prev);
                     newCache.set(cacheKey, fileData);
-                    console.log('Cache now has:', Array.from(newCache.keys()));
                     return newCache;
                 });
 
@@ -381,7 +371,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
     const loadFileContent = async (fileId) => {
         try {
-            const response = await apiService.getFile(fileId);
+            const response = await apiService.getFileContent(fileId);
             setCode(response.file.content);
             lastSaveRef.current = response.file.content;
         } catch (error) {
@@ -413,12 +403,9 @@ const CollaborativeEditor = ({ readOnly = false }) => {
 
         // CRITICAL: Only save if the current code actually belongs to the active file
         const currentFileId = activeFile._id;
-        console.log('Auto-saving file:', activeFile.name, 'ID:', currentFileId);
-        console.log('Content length:', code.length);
-        console.log('Last saved content length:', lastSaveRef.current?.length || 0);
 
         try {
-            await apiService.updateFile(currentFileId, { content: code });
+            await apiService.updateFileContent(currentFileId, { content: code });
 
             // Only update refs and cache if we're still on the same file
             if (activeFile && activeFile._id === currentFileId) {
@@ -441,7 +428,6 @@ const CollaborativeEditor = ({ readOnly = false }) => {
                             ...existingCache,
                             content: code
                         });
-                        console.log('Updated cache for file:', currentFileId);
                     }
                     return newCache;
                 });
@@ -461,7 +447,7 @@ const CollaborativeEditor = ({ readOnly = false }) => {
         if (!activeFile || readOnly) return;
 
         try {
-            await apiService.updateFile(activeFile._id, { content: code });
+            await apiService.updateFileContent(activeFile._id, { content: code });
             lastSaveRef.current = code;
 
             if (socket) {

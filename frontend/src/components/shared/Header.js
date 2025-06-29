@@ -94,7 +94,7 @@ const Header = ({
                         <div className="flex items-center space-x-4">
                             <AnimatedLogo 
                                 size="medium"
-                                // onClick={() => navigate('/')}
+                                onClick={() => navigate('/')}
                                 className="transition-all duration-200"
                             />
 
