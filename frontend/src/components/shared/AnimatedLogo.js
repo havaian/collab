@@ -76,22 +76,28 @@ const AnimatedLogo = ({
         //         className="transition-all duration-500 ease-in-out logo-path"
         //     />
         // </svg>
-        <img
-            src="/logo.png"
-            alt="GPT-Collab Logo"
-            className={`h-24 w-24 ${svgClassName} transition-all duration-300 ease-in-out logo-image object-contain`}
-        />
+        <a href='https://bolt.new/' target="_blank" rel="noopener noreferrer">
+            <img
+                src="/logo.png"
+                alt="GPT-Collab Logo"
+                className={`h-24 w-24 ${svgClassName} transition-all duration-300 ease-in-out logo-image object-contain`}
+            />
+        </a>
     );
 
     const renderContent = () => {
         const textElement = showTitle && (
-            <span className={`
-                ${config.text} 
-                font-bold 
-                bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent
-                transition-all duration-500 ease-in-out
-                logo-text
-            `}>
+            <span 
+                className={`
+                    ${config.text} 
+                    font-bold 
+                    bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent
+                    transition-all duration-500 ease-in-out
+                    logo-text
+                    ${isClickable ? 'cursor-pointer' : ''}
+                `}
+                onClick={isClickable ? onClick : undefined}
+            >
                 GPT-Collab
             </span>
         );
@@ -124,19 +130,16 @@ const AnimatedLogo = ({
         className: `
       animated-logo-container
       group
-      ${isClickable ? 'cursor-pointer' : ''}
       transition-all duration-300 ease-in-out
       ${className}
     `,
         // ...(isClickable && { onClick })
     };
 
-    const Container = isClickable ? 'button' : 'div';
-
     return (
-        <Container {...containerProps}>
+        <div {...containerProps}>
             {renderContent()}
-        </Container>
+        </div>
     );
 };
 

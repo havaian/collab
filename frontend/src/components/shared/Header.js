@@ -92,13 +92,11 @@ const Header = ({
 
                         {/* Logo & Title */}
                         <div className="flex items-center space-x-4">
-                            <a href='https://bolt.new/' target="_blank" rel="noopener noreferrer">
-                                <AnimatedLogo 
-                                    size="medium"
-                                    // onClick={() => navigate('/')}
-                                    className="transition-all duration-200"
-                                />
-                            </a>
+                            <AnimatedLogo 
+                                size="medium"
+                                // onClick={() => navigate('/')}
+                                className="transition-all duration-200"
+                            />
 
                             {title && (
                                 <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
