@@ -389,7 +389,7 @@ class ApiService {
     // File Operations
     async createFile(fileData) {
         try {
-            const response = await this.api.post(`/files/project/${fileData.projectId}`, {
+            const response = await this.client.post(`/files/project/${fileData.projectId}`, {
                 name: fileData.name,
                 type: fileData.type || 'file',
                 content: fileData.content || '',
@@ -404,7 +404,7 @@ class ApiService {
 
     async deleteFile(fileId, permanent = false) {
         try {
-            const response = await this.api.delete(`/files/${fileId}`, {
+            const response = await this.client.delete(`/files/${fileId}`, {
                 params: { permanent }
             });
             return response.data;
@@ -416,7 +416,7 @@ class ApiService {
 
     async renameFile(fileId, newName) {
         try {
-            const response = await this.api.put(`/files/${fileId}`, {
+            const response = await this.client.put(`/files/${fileId}`, {
                 name: newName
             });
             return response.data;
@@ -428,7 +428,7 @@ class ApiService {
 
     async moveFile(fileId, parentFolderId) {
         try {
-            const response = await this.api.put(`/files/${fileId}/move`, {
+            const response = await this.client.put(`/files/${fileId}/move`, {
                 parentFolder: parentFolderId
             });
             return response.data;
@@ -440,7 +440,7 @@ class ApiService {
 
     async duplicateFile(fileId, newName) {
         try {
-            const response = await this.api.post(`/files/${fileId}/duplicate`, {
+            const response = await this.client.post(`/files/${fileId}/duplicate`, {
                 name: newName
             });
             return response.data;
@@ -452,7 +452,7 @@ class ApiService {
 
     async getFileContent(fileId) {
         try {
-            const response = await this.api.get(`/files/${fileId}`);
+            const response = await this.client.get(`/files/${fileId}`);
             return response.data;
         } catch (error) {
             console.error('Get file content error:', error);
@@ -462,7 +462,7 @@ class ApiService {
 
     async updateFileContent(fileId, content, metadata = {}) {
         try {
-            const response = await this.api.put(`/files/${fileId}`, {
+            const response = await this.client.put(`/files/${fileId}`, {
                 content,
                 metadata
             });
@@ -476,7 +476,7 @@ class ApiService {
     // GitHub Operations
     async getGitHubRepositories(page = 1, perPage = 30) {
         try {
-            const response = await this.api.get('/github/repos', {
+            const response = await this.client.get('/github/repos', {
                 params: { page, per_page: perPage }
             });
             return response.data;
@@ -488,7 +488,7 @@ class ApiService {
 
     async importGitHubRepository(repositoryData) {
         try {
-            const response = await this.api.post('/github/import', repositoryData);
+            const response = await this.client.post('/github/import', repositoryData);
             return response.data;
         } catch (error) {
             console.error('Import GitHub repository error:', error);
@@ -498,7 +498,7 @@ class ApiService {
 
     async syncGitHubRepository(projectId, repositoryUrl, branch = 'main') {
         try {
-            const response = await this.api.post('/github/sync', {
+            const response = await this.client.post('/github/sync', {
                 projectId,
                 repositoryUrl,
                 branch
