@@ -1,4 +1,4 @@
-// frontend/src/services/apiService.js
+// services/apiService.js
 import axios from 'axios';
 
 class ApiService {
@@ -300,13 +300,12 @@ class ApiService {
         }
     }
 
-    // Project files method with correct endpoint
     async getProjectFiles(projectId) {
         try {
             const response = await this.client.get(`/files/project/${projectId}`);
             return response.data;
         } catch (error) {
-            console.error('Failed to fetch project files:', error);
+            console.error('Failed to fetch project:', error);
             throw this.handleError(error);
         }
     }
@@ -387,236 +386,43 @@ class ApiService {
         }
     }
 
-    // File Operations with proper error handling and validation
-    async createFile(fileData) {
+    async createFile(projectId, fileData) {
         try {
-            // Validate required fields
-            if (!fileData.projectId) {
-                throw new Error('Project ID is required');
-            }
-            if (!fileData.name || fileData.name.trim().length === 0) {
-                throw new Error('File name is required');
-            }
-
-            const response = await this.client.post(`/files/project/${fileData.projectId}`, {
-                name: fileData.name.trim(),
-                type: fileData.type || 'file',
-                content: fileData.content || '',
-                parentFolder: fileData.parentId || null
-            });
+            const response = await this.client.post(`/projects/${projectId}/files`, fileData);
             return response.data;
         } catch (error) {
-            console.error('Create file error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Failed to create file');
+            console.error('Failed to create file:', error);
+            throw this.handleError(error);
         }
     }
 
-    async deleteFile(fileId, permanent = false) {
+    async getFile(fileId) {
         try {
-            if (!fileId) {
-                throw new Error('File ID is required');
-            }
-
-            const response = await this.client.delete(`/files/${fileId}`, {
-                params: { permanent: permanent.toString() }
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Delete file error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Failed to delete file');
-        }
-    }
-
-    // Rename file method with proper validation
-    async renameFile(fileId, newName) {
-        try {
-            if (!fileId) {
-                throw new Error('File ID is required');
-            }
-            if (!newName || newName.trim().length === 0) {
-                throw new Error('New name is required');
-            }
-
-            const response = await this.client.put(`/files/${fileId}`, {
-                name: newName.trim()
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Rename file error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Failed to rename file');
-        }
-    }
-
-    // Move file method with proper null handling
-    async moveFile(fileId, parentFolderId) {
-        try {
-            if (!fileId) {
-                throw new Error('File ID is required');
-            }
-
-            // Handle null/undefined parent folder properly
-            const requestBody = {
-                parentFolder: parentFolderId === null || parentFolderId === undefined || parentFolderId === '' 
-                    ? null 
-                    : parentFolderId
-            };
-
-            const response = await this.client.put(`/files/${fileId}/move`, requestBody);
-            return response.data;
-        } catch (error) {
-            console.error('Move file error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Failed to move file');
-        }
-    }
-
-    async duplicateFile(fileId, newName) {
-        try {
-            if (!fileId) {
-                throw new Error('File ID is required');
-            }
-
-            const requestBody = {};
-            if (newName && newName.trim().length > 0) {
-                requestBody.name = newName.trim();
-            }
-
-            const response = await this.client.post(`/files/${fileId}/duplicate`, requestBody);
-            return response.data;
-        } catch (error) {
-            console.error('Duplicate file error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Failed to duplicate file');
-        }
-    }
-
-    async getFileContent(fileId) {
-        try {
-            if (!fileId) {
-                throw new Error('File ID is required');
-            }
-
             const response = await this.client.get(`/files/${fileId}`);
             return response.data;
         } catch (error) {
-            console.error('Get file content error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Failed to load file content');
+            console.error('Failed to get file:', error);
+            throw this.handleError(error);
         }
     }
 
-    // Update file content with comprehensive error handling
-    async updateFileContent(fileId, content, metadata = {}) {
+    async updateFile(fileId, fileData) {
         try {
-            if (!fileId) {
-                throw new Error('File ID is required');
-            }
-            if (content === undefined || content === null) {
-                throw new Error('Content is required');
-            }
-
-            // Log request for debugging
-            console.log(`Updating file ${fileId} with content length: ${content.length}`);
-
-            const requestBody = { content };
-            
-            // Only add metadata if it's not empty
-            if (metadata && Object.keys(metadata).length > 0) {
-                requestBody.metadata = metadata;
-            }
-
-            const response = await this.client.put(`/files/${fileId}`, requestBody);
-            
-            // Log successful response
-            console.log(`File ${fileId} updated successfully`);
-            
+            const response = await this.client.put(`/files/${fileId}`, fileData);
             return response.data;
         } catch (error) {
-            console.error('Update file content error:', error);
-            
-            // Better error message handling
-            let errorMessage = 'Failed to update file content';
-            
-            if (error.response?.data?.error) {
-                errorMessage = error.response.data.error;
-            } else if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-            
-            throw new Error(errorMessage);
+            console.error('Failed to update file:', error);
+            throw this.handleError(error);
         }
     }
 
-    // Batch operations for frontend
-    async batchDeleteFiles(fileIds, permanent = false) {
+    async deleteFile(fileId) {
         try {
-            if (!Array.isArray(fileIds) || fileIds.length === 0) {
-                throw new Error('File IDs array is required');
-            }
-
-            const response = await this.client.post('/files/batch/delete', {
-                fileIds,
-                permanent
-            });
+            const response = await this.client.delete(`/files/${fileId}`);
             return response.data;
         } catch (error) {
-            console.error('Batch delete files error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Failed to delete files');
-        }
-    }
-
-    async batchMoveFiles(fileIds, parentFolderId) {
-        try {
-            if (!Array.isArray(fileIds) || fileIds.length === 0) {
-                throw new Error('File IDs array is required');
-            }
-
-            const response = await this.client.post('/files/batch/move', {
-                fileIds,
-                parentFolder: parentFolderId === null || parentFolderId === undefined || parentFolderId === ''
-                    ? null 
-                    : parentFolderId
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Batch move files error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Failed to move files');
-        }
-    }
-
-    // GitHub Operations
-    async getGitHubRepositories(page = 1, perPage = 30) {
-        try {
-            const response = await this.client.get('/github/repos', {
-                params: { page, per_page: perPage }
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Get GitHub repositories error:', error);
-            throw new Error(error.response?.data?.error || 'Failed to load GitHub repositories');
-        }
-    }
-
-    async importGitHubRepository(repositoryData) {
-        try {
-            const response = await this.client.post('/github/import', repositoryData);
-            return response.data;
-        } catch (error) {
-            console.error('Import GitHub repository error:', error);
-            throw new Error(error.response?.data?.error || 'Failed to import repository');
-        }
-    }
-
-    async syncGitHubRepository(projectId, repositoryUrl, branch = 'main') {
-        try {
-            const response = await this.client.post('/github/sync', {
-                projectId,
-                repositoryUrl,
-                branch
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Sync GitHub repository error:', error);
-            throw new Error(error.response?.data?.error || 'Failed to sync repository');
+            console.error('Failed to delete file:', error);
+            throw this.handleError(error);
         }
     }
 
@@ -640,68 +446,27 @@ class ApiService {
         }
     }
 
-    // Error handling with more specific error types
+    // Error handling
     handleError(error) {
         const errorResponse = {
             message: 'An unexpected error occurred',
             status: null,
             data: null,
-            code: null,
         };
 
         if (error.response) {
             // Server responded with error status
             errorResponse.status = error.response.status;
             errorResponse.data = error.response.data;
-            
-            // Extract error message from various possible structures
-            if (error.response.data?.error) {
-                errorResponse.message = error.response.data.error;
-            } else if (error.response.data?.message) {
-                errorResponse.message = error.response.data.message;
-            } else if (error.response.data?.details) {
-                errorResponse.message = error.response.data.details;
-            } else {
-                errorResponse.message = `Server error: ${error.response.status}`;
-            }
-            
-            // Set error code based on status
-            switch (error.response.status) {
-                case 401:
-                    errorResponse.code = 'UNAUTHORIZED';
-                    break;
-                case 403:
-                    errorResponse.code = 'FORBIDDEN';
-                    break;
-                case 404:
-                    errorResponse.code = 'NOT_FOUND';
-                    break;
-                case 409:
-                    errorResponse.code = 'CONFLICT';
-                    break;
-                case 413:
-                    errorResponse.code = 'PAYLOAD_TOO_LARGE';
-                    break;
-                case 422:
-                    errorResponse.code = 'VALIDATION_ERROR';
-                    break;
-                case 429:
-                    errorResponse.code = 'RATE_LIMITED';
-                    break;
-                case 500:
-                    errorResponse.code = 'SERVER_ERROR';
-                    break;
-                default:
-                    errorResponse.code = 'UNKNOWN_ERROR';
-            }
+            errorResponse.message = error.response.data?.message ||
+                error.response.data?.error ||
+                `Server error: ${error.response.status}`;
         } else if (error.request) {
             // Request made but no response received
             errorResponse.message = 'Network error. Please check your connection.';
-            errorResponse.code = 'NETWORK_ERROR';
         } else {
             // Something else happened
             errorResponse.message = error.message || 'Request failed';
-            errorResponse.code = 'REQUEST_ERROR';
         }
 
         return errorResponse;
