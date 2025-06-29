@@ -128,7 +128,7 @@ const AnimatedLogo = ({
       transition-all duration-300 ease-in-out
       ${className}
     `,
-        ...(isClickable && { onClick })
+        // ...(isClickable && { onClick })
     };
 
     const Container = isClickable ? 'button' : 'div';

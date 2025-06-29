@@ -81,11 +81,13 @@ const LoginPage = () => {
             <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-6">
-                        <AnimatedLogo 
-                            size="medium"
-                            onClick={() => navigate('/')}
-                            className="transition-all duration-200"
-                        />
+                        <a href='https://bolt.new/' target="_blank" rel="noopener noreferrer">
+                            <AnimatedLogo 
+                                size="medium"
+                                // onClick={() => navigate('/')}
+                                className="transition-all duration-200"
+                            />
+                        </a>                        
                     </div>
                 </div>
             </header>
