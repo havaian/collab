@@ -22,7 +22,6 @@ $DOCKER_COMPOSE build
 
 # If builds succeeded, stop and recreate containers
 echo "🔄 Swapping to new containers..."
-$DOCKER_COMPOSE down
 $DOCKER_COMPOSE up -d --force-recreate
 
 echo "📢 Deployment complete!"
