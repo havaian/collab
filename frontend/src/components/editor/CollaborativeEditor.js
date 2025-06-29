@@ -11,7 +11,6 @@ import ChatInterface from '../chat/ChatInterface';
 import CollaboratorCursors from './CollaboratorCursors';
 import Header from '../shared/Header';
 import Button from '../shared/Button';
-import FileTree from './FileTree';
 import { toast } from 'react-toastify';
 import {
     ChatBubbleLeftIcon,
