@@ -1,6 +1,7 @@
-// src/file/service.js
+// backend/src/file/service.js
 const File = require('./model');
 const Project = require('../project/model');
+const mongoose = require('mongoose');
 const path = require('path');
 
 class FileService {
@@ -115,8 +116,15 @@ class FileService {
       throw new Error('File is read-only');
     }
     
-    // Update allowed fields
+    // Handle all update fields properly
     const allowedFields = ['name', 'content', 'language', 'metadata'];
+    const hasChanges = allowedFields.some(field => updates[field] !== undefined);
+    
+    if (!hasChanges) {
+      throw new Error('No valid fields to update');
+    }
+    
+    // Update allowed fields
     allowedFields.forEach(field => {
       if (updates[field] !== undefined) {
         if (field === 'metadata') {
@@ -128,12 +136,27 @@ class FileService {
     });
     
     file.lastModifiedBy = userId;
+    file.lastModified = new Date(); // Update timestamp
     
-    // If name changed, update path
+    // If name changed, update path and check for conflicts
     if (updates.name && updates.name !== file.name) {
       const pathParts = file.path.split('/');
       pathParts[pathParts.length - 1] = updates.name;
-      file.path = pathParts.join('/');
+      const newPath = pathParts.join('/');
+      
+      // Check if new path conflicts with existing file
+      const existingFile = await File.findOne({
+        projectId: file.projectId,
+        path: newPath,
+        isDeleted: false,
+        _id: { $ne: file._id }
+      });
+      
+      if (existingFile) {
+        throw new Error('File already exists at this path');
+      }
+      
+      file.path = newPath;
       
       // Detect new language if extension changed
       if (file.type === 'file') {
@@ -170,13 +193,18 @@ class FileService {
     } else {
       // Soft delete
       file.isDeleted = true;
+      file.lastModifiedBy = userId; // Track who deleted
       await file.save();
       
       // Soft delete children if it's a folder
       if (file.type === 'folder') {
         await File.updateMany(
           { parentFolder: file._id },
-          { isDeleted: true }
+          { 
+            isDeleted: true,
+            lastModifiedBy: userId,
+            lastModified: new Date()
+          }
         );
       }
     }
@@ -200,10 +228,12 @@ class FileService {
       throw new Error('Access denied');
     }
     
+    // Handle null/undefined newParentId properly
     let newPath = file.name;
+    let newParent = null;
     
-    if (newParentId) {
-      const newParent = await File.findOne({
+    if (newParentId && newParentId !== 'null' && newParentId !== '') {
+      newParent = await File.findOne({
         _id: newParentId,
         projectId: file.projectId,
         type: 'folder',
@@ -212,6 +242,14 @@ class FileService {
       
       if (!newParent) {
         throw new Error('Target folder not found');
+      }
+      
+      // Prevent moving folder into itself or its children
+      if (file.type === 'folder') {
+        const isCircular = await this.wouldCreateCircularReference(file._id, newParentId);
+        if (isCircular) {
+          throw new Error('Cannot move folder into itself or its children');
+        }
       }
       
       newPath = `${newParent.path}/${file.name}`;
@@ -229,11 +267,20 @@ class FileService {
       throw new Error('File already exists at target location');
     }
     
-    file.parentFolder = newParentId || null;
+    // Update all child paths if moving a folder
+    const oldPath = file.path;
+    file.parentFolder = newParentId && newParentId !== 'null' && newParentId !== '' ? newParentId : null;
     file.path = newPath;
     file.lastModifiedBy = userId;
+    file.lastModified = new Date();
     
     await file.save();
+    
+    // Update children paths if it's a folder
+    if (file.type === 'folder') {
+      await this.updateChildrenPaths(file._id, oldPath, newPath);
+    }
+    
     await file.populate('createdBy', 'username avatar');
     await file.populate('lastModifiedBy', 'username avatar');
     
@@ -253,8 +300,18 @@ class FileService {
       throw new Error('Access denied');
     }
     
+    // Generate unique name if not provided
+    let duplicateName = newName;
+    if (!duplicateName) {
+      duplicateName = await this.generateUniqueName(
+        originalFile.name, 
+        originalFile.projectId, 
+        originalFile.parentFolder
+      );
+    }
+    
     const duplicateData = {
-      name: newName || `${originalFile.name}_copy`,
+      name: duplicateName,
       content: originalFile.content,
       parentFolder: originalFile.parentFolder,
       type: originalFile.type
@@ -263,7 +320,73 @@ class FileService {
     return this.createFile(userId, originalFile.projectId, duplicateData);
   }
   
-  // Helper methods
+  // New helper methods
+  async wouldCreateCircularReference(folderId, newParentId) {
+    if (folderId.toString() === newParentId.toString()) {
+      return true;
+    }
+    
+    let currentParent = await File.findById(newParentId);
+    while (currentParent && currentParent.parentFolder) {
+      if (currentParent.parentFolder.toString() === folderId.toString()) {
+        return true;
+      }
+      currentParent = await File.findById(currentParent.parentFolder);
+    }
+    
+    return false;
+  }
+  
+  async updateChildrenPaths(folderId, oldPath, newPath) {
+    const children = await File.find({ parentFolder: folderId });
+    
+    for (const child of children) {
+      const childOldPath = child.path;
+      const childNewPath = child.path.replace(oldPath, newPath);
+      
+      child.path = childNewPath;
+      await child.save();
+      
+      // Recursively update grandchildren
+      if (child.type === 'folder') {
+        await this.updateChildrenPaths(child._id, childOldPath, childNewPath);
+      }
+    }
+  }
+  
+  async generateUniqueName(baseName, projectId, parentFolder) {
+    const extension = path.extname(baseName);
+    const nameWithoutExt = path.basename(baseName, extension);
+    let counter = 1;
+    let newName = `${nameWithoutExt}_copy${extension}`;
+    
+    while (await this.fileExistsAtPath(projectId, parentFolder, newName)) {
+      newName = `${nameWithoutExt}_copy${counter}${extension}`;
+      counter++;
+    }
+    
+    return newName;
+  }
+  
+  async fileExistsAtPath(projectId, parentFolder, fileName) {
+    let filePath = fileName;
+    if (parentFolder) {
+      const parent = await File.findById(parentFolder);
+      if (parent) {
+        filePath = `${parent.path}/${fileName}`;
+      }
+    }
+    
+    const existingFile = await File.findOne({
+      projectId,
+      path: filePath,
+      isDeleted: false
+    });
+    
+    return !!existingFile;
+  }
+  
+  // Helper methods (existing)
   buildFileTree(files) {
     const fileMap = new Map();
     const rootFiles = [];
