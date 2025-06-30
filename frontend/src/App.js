@@ -12,6 +12,7 @@ import SettingsPage from './components/settings/SettingsPage';
 import ProfilePage from './components/profile/ProfilePage';
 import UserInvites from './components/invite/UserInvites';
 import GitHubIntegration from './components/github/GitHubIntegration';
+import InviteJoinPage from './components/invite/InviteJoinPage';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import "./App.css";
@@ -93,6 +94,7 @@ function App() {
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="/profile/:userId?" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/invites" element={<ProtectedRoute><UserInvites /></ProtectedRoute>} />
+              <Route path="/invite/:token" element={<InviteJoinPage />} />
               <Route path="/github" element={<ProtectedRoute><GitHubIntegration /></ProtectedRoute>} />
             </Routes>
           </div>

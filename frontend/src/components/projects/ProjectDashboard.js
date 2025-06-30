@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
 import githubService from '../../services/githubService';
+import InviteLinkGenerator from '../invite/InviteLinkGenerator';
+import InviteManagement from '../invite/InviteManagement';
+import { LinkIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 import Header from '../shared/Header';
 import Button from '../shared/Button';
@@ -598,6 +601,8 @@ const ProjectDashboard = () => {
 const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, getLanguageIcon, navigate = { navigate } }) => {
     const [showMenu, setShowMenu] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
+    const [showInviteLinkGenerator, setShowInviteLinkGenerator] = useState(false);
+    const [showInviteManagement, setShowInviteManagement] = useState(false);
     const menuRef = useRef(null);
 
     // Close menu when clicking outside
@@ -707,13 +712,37 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        setShowInviteLinkGenerator(true);
+                                        setShowMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-200 flex items-center space-x-2 text-sm"
+                                >
+                                    <LinkIcon className="h-4 w-4 text-gray-400" />
+                                    <span>Generate Invite Link</span>
+                                </button>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowInviteManagement(true);
+                                        setShowMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-200 flex items-center space-x-2 text-sm"
+                                >
+                                    <UsersIcon className="h-4 w-4 text-gray-400" />
+                                    <span>Manage Invites</span>
+                                </button>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         setShowInviteModal(true);
                                         setShowMenu(false);
                                     }}
                                     className="w-full px-4 py-2 text-left hover:bg-gray-200 flex items-center space-x-2 text-sm"
                                 >
                                     <EnvelopeIcon className="h-4 w-4 text-gray-400" />
-                                    <span>Invite Collaborator</span>
+                                    <span>Email Invite</span>
                                 </button>
 
                                 {project.repository && (
@@ -823,6 +852,28 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                     projectName={project.name}
                     onInvite={handleInviteCollaborator}
                     onClose={() => setShowInviteModal(false)}
+                />
+            )}
+            
+            {/* New Invite Link Generator */}
+            {showInviteLinkGenerator && (
+                <InviteLinkGenerator
+                    isOpen={showInviteLinkGenerator}
+                    onClose={() => setShowInviteLinkGenerator(false)}
+                    projectId={project._id}
+                    onLinkGenerated={(linkData) => {
+                        console.log('Invite link generated:', linkData);
+                        // Optionally show success message or update UI
+                    }}
+                />
+            )}
+
+            {/* Invite Management Modal */}
+            {showInviteManagement && (
+                <InviteManagement
+                    isOpen={showInviteManagement}
+                    onClose={() => setShowInviteManagement(false)}
+                    projectId={project._id}
                 />
             )}
         </div>
