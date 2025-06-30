@@ -6,7 +6,6 @@ import apiService from '../../services/apiService';
 import githubService from '../../services/githubService';
 import InviteLinkGenerator from '../invite/InviteLinkGenerator';
 import InviteManagement from '../invite/InviteManagement';
-import { LinkIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 import Header from '../shared/Header';
 import Button from '../shared/Button';
@@ -30,7 +29,8 @@ import {
     UserIcon,
     ClockIcon,
     XMarkIcon,
-    UsersIcon
+    UsersIcon,
+    LinkIcon
 } from '@heroicons/react/24/outline';
 
 const ProjectDashboard = () => {
@@ -854,7 +854,7 @@ const ProjectCard = ({ project, onProjectClick, onDeleteProject, formatDate, get
                     onClose={() => setShowInviteModal(false)}
                 />
             )}
-            
+
             {/* New Invite Link Generator */}
             {showInviteLinkGenerator && (
                 <InviteLinkGenerator
